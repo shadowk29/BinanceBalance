@@ -2,6 +2,8 @@ import Tkinter as tk
 import ttk
 import tkFileDialog
 import pandas as pd
+from binance.client import Client
+import numpy as np
 
 
 class BalanceGUI(tk.Frame):
@@ -9,7 +11,8 @@ class BalanceGUI(tk.Frame):
         tk.Frame.__init__(self, parent)
         
         parent.deiconify()
-        self.coins = coins        
+        self.coins = coins
+        self.coins_base = coins
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -54,8 +57,8 @@ class BalanceGUI(tk.Frame):
         self.orderopt['state'] = 'disabled'
 
         self.trade_currency = tk.StringVar()
-        self.trade_currency.set('Trade Currency')
-        self.trade_currency_opt = tk.OptionMenu(self.controls_view, self.trade_currency, 'BTC', 'ETH', 'USDT', 'Automatic')
+        self.trade_currency.set('ETH')
+        self.trade_currency_opt = tk.OptionMenu(self.controls_view, self.trade_currency, 'BTC', 'ETH', command=self.currency_change)
         self.trade_currency_opt.grid(row=1, column=1, stick=tk.E+tk.W)
         self.trade_currency_opt['state'] = 'disabled'
         
@@ -64,13 +67,14 @@ class BalanceGUI(tk.Frame):
         self.stream_view = tk.LabelFrame(parent, text='Current State')
         self.stream_view.grid(row=2, column=0, sticky=tk.E+tk.W)
         self.commands = tk.StringVar()
-        self.stream = tk.Label(self.stream_view, textvariable = self.commands)
+        self.commands.set('Ready')
+        self.stream = tk.Label(self.stream_view, textvariable = self.commands, justify=tk.LEFT)
         self.stream.grid(row=0, column=0, sticky=tk.E+tk.W)
 
     def api_enter(self):
-        self.api_key = self.key_entry.get()
+        api_key = self.key_entry.get()
         self.key_entry.delete(0,'end')
-        self.api_secret = self.secret_entry.get()
+        api_secret = self.secret_entry.get()
         self.secret_entry.delete(0,'end')
 
         
@@ -81,16 +85,54 @@ class BalanceGUI(tk.Frame):
         self.dryrun_button['state'] = 'normal'
         self.orderopt['state'] = 'normal'
         self.trade_currency_opt['state'] = 'normal'
+
+        self.update_commands('Logging in...')
+        self.client = Client(api_key, api_secret)
+        status = self.client.get_system_status()
+        self.update_commands('System status: {0}'.format(status['msg']))
+        
         self.populate_portfolio()
 
+
+    def update_commands(self, string):
+        self.commands.set(self.commands.get() + '\n' + string)
+                          
     def dryrun(self):
         self.rebalance_button['state'] = 'normal'
         
-
+    def currency_change(self, event):
+        self.coins = self.coins_base
+        self.populate_portfolio()
+        
     def populate_portfolio(self):
+        self.portfolio.delete(*self.portfolio.get_children())
+        exchange_coins = []
+        prices = self.client.get_all_tickers()
+        
+        
+        for coin in self.coins['coin']:            
+            balance = self.client.get_asset_balance(asset=coin)
+            pair = coin+self.trade_currency.get()
+            if pair == 'BTCETH' and self.trade_currency.get() == 'ETH':
+                pair = 'ETHBTC'
+            price = float(next((item for item in prices if item['symbol'] == pair), {'price': 1})['price'])
+            if pair == 'ETHBTC' and self.trade_currency.get() == 'ETH':
+                price = 1.0/price
+            row = {'coin': coin, 'exchange_balance': float(balance['free']), 'price': price}
+            exchange_coins.append(row)
+        exchange_coins = pd.DataFrame(exchange_coins)
+
+        self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
+        self.coins['actual'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
+        total = np.sum(self.coins['actual'])
+        self.coins.loc[:,'actual'] *= 100.0/total
+
+        print self.coins
+        self.update_commands('Portfolio Value: {0:.6f} {1}'.format(total, self.trade_currency.get()))
+        self.update_commands('Portfolio RMS deviation: {0:.2f}%'.format(np.sqrt(np.average((self.coins.actual.values - self.coins.allocation.values)**2))))     
         i = 0
         for row in self.coins.itertuples():
-            self.portfolio.insert("" , i, text=row.coin, values=(row.fixed, 0, '{0} %'.format(row.allocation), 0, 'None'))
+            self.portfolio.insert("" , i, text=row.coin, values=(row.fixed_balance, row.exchange_balance, '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), 'None'))
             i += 1
         
     def refresh(self):
