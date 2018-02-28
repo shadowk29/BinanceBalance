@@ -110,16 +110,19 @@ class BalanceGUI(tk.Frame):
         self.coins = self.coins_base
         self.portfolio.delete(*self.portfolio.get_children())
         exchange_coins = []
-        prices = self.client.get_all_tickers()
+        trade_currency = self.trade_currency.get()
         
         
         for coin in self.coins['coin']:            
             balance = self.client.get_asset_balance(asset=coin)
-            pair = coin+self.trade_currency.get()
+            pair = coin+trade_currency
             if pair == 'BTCETH' and self.trade_currency.get() == 'ETH':
                 pair = 'ETHBTC'
-            price = float(next((item for item in prices if item['symbol'] == pair), {'price': 1})['price'])
-            if pair == 'ETHBTC' and self.trade_currency.get() == 'ETH':
+            if pair == trade_currency+trade_currency:
+                price = 1.0
+            else:
+                price = float(self.client.get_symbol_ticker(symbol = pair)['price'])#float(next((item for item in prices if item['symbol'] == pair), {'price': 1})['price'])
+            if pair == 'ETHBTC' and trade_currency == 'ETH':
                 price = 1.0/price
             row = {'coin': coin, 'exchange_balance': float(balance['free']), 'price': price}
             exchange_coins.append(row)
