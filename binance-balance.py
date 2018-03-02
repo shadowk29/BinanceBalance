@@ -3,8 +3,11 @@ import ttk
 import tkFileDialog
 import pandas as pd
 from binance.client import Client
+from binance.websockets import BinanceSocketManager
+from binance.enums import *
 import numpy as np
 from datetime import datetime
+from time import sleep
 
 
 class BalanceGUI(tk.Frame):
@@ -62,6 +65,10 @@ class BalanceGUI(tk.Frame):
         self.trade_currency_opt = tk.OptionMenu(self.controls_view, self.trade_currency, 'BTC', 'ETH', command=self.currency_change)
         self.trade_currency_opt.grid(row=1, column=1, stick=tk.E+tk.W)
         self.trade_currency_opt['state'] = 'disabled'
+
+        self.test_socket = tk.Button(self.controls_view, text='Test Sockets', command=self.test_sockets)
+        self.test_socket.grid(row=1, column=5, sticky=tk.E+tk.W)
+        
         
 
         #streaming display
@@ -72,6 +79,27 @@ class BalanceGUI(tk.Frame):
         self.stream = tk.Label(self.stream_view, textvariable = self.commands, justify=tk.LEFT)
         self.stream.grid(row=0, column=0, sticky=tk.E+tk.W)
 
+        #start websocket manager
+    
+
+        
+        
+
+    def test_sockets(self):
+        print 'test 0'
+        self.bm = BinanceSocketManager(self.client)
+        self.bm.start()
+        self.diff_key = self.bm.start_kline_socket('BNBBTC', self.process_message, interval=KLINE_INTERVAL_30MINUTE)
+        self.diff_key2 = self.bm.start_kline_socket('ETHBTC', self.process_message, interval=KLINE_INTERVAL_30MINUTE)
+        print 'test 1'
+        sleep(10)
+        self.bm.close()
+        print 'test 2'
+
+        
+    def process_message(self, msg):
+        print(msg)
+    
     def api_enter(self):
         api_key = self.key_entry.get()
         self.key_entry.delete(0,'end')
@@ -93,6 +121,7 @@ class BalanceGUI(tk.Frame):
         self.update_commands('{0}: System status: {1}'.format(datetime.today().replace(microsecond=0), status['msg']))
         
         self.populate_portfolio()
+        
 
 
     def update_commands(self, string):
@@ -102,6 +131,21 @@ class BalanceGUI(tk.Frame):
                           
     def dryrun(self):
         self.rebalance_button['state'] = 'normal'
+        self.populate_portfolio()
+        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
+
+        trade_currency = self.trade_currency.get()
+        for row in self.coins.itertuples():
+            coin = row.coin
+            dif = row.difference
+            price = row.price
+            if dif < 0:
+                action = 'Sell {0:.6f} {1} @ {2:.6f} {3}'.format(-dif, coin, price, trade_currency)
+            else:
+                action = 'Buy {0:.6f} {1} @ {2:.6f} {3}'.format(dif, coin, price, trade_currency)
+            if coin == trade_currency:
+                action = 'Trade Currency'
+            self.portfolio.set(coin, column='Action', value=action)
         
     def currency_change(self, event):
         self.populate_portfolio()
@@ -130,14 +174,13 @@ class BalanceGUI(tk.Frame):
 
         self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
         self.coins['actual'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
-        total = np.sum(self.coins['actual'])
-        self.coins.loc[:,'actual'] *= 100.0/total
+        self.total = np.sum(self.coins['actual'])
+        self.coins.loc[:,'actual'] *= 100.0/self.total
 
-        print self.coins
-        self.update_commands('{0}: Portfolio Value: {1:.6f} {2}'.format(datetime.today().replace(microsecond=0), total, self.trade_currency.get()))
+        self.update_commands('{0}: Portfolio Value: {1:.6f} {2}'.format(datetime.today().replace(microsecond=0), self.total, self.trade_currency.get()))
         i = 0
         for row in self.coins.itertuples():
-            self.portfolio.insert("" , i, text=row.coin, values=(row.fixed_balance, row.exchange_balance, '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), '', 'Waiting'))
+            self.portfolio.insert("" , i, iid=row.coin, text=row.coin, values=(row.fixed_balance, row.exchange_balance, '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), '', 'Waiting'))
             i += 1
         
     def rebalance(self):
