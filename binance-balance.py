@@ -9,6 +9,8 @@ import numpy as np
 from datetime import datetime
 from time import sleep
 
+def round_decimal(num, decimal):
+    return np.round(num/decimal, 0)*decimal
 
 class BalanceGUI(tk.Frame):
     def __init__(self, parent, coins):
@@ -24,10 +26,12 @@ class BalanceGUI(tk.Frame):
         self.portfolio = ttk.Treeview(self.portfolio_view)
         self.portfolio['columns']=('Stored','Exchange', 'Target','Actual', 'Action', 'Status')
         for label in self.portfolio['columns']:
-            if label != 'Action':
-                self.portfolio.column(label, width=100)
+            if label == 'Action':
+                self.portfolio.column(label, width=250)
+            elif label == 'Status':
+                self.portfolio.column(label, width=600)
             else:
-                self.portfolio.column(label, width=300)
+                self.portfolio.column(label, width=100)
             self.portfolio.heading(label, text=label)
         self.portfolio.grid(row=0,column=0)
 
@@ -138,14 +142,38 @@ class BalanceGUI(tk.Frame):
         for row in self.coins.itertuples():
             coin = row.coin
             dif = row.difference
+            qty = np.absolute(dif)
             price = row.price
-            if dif < 0:
-                action = 'Sell {0:.6f} {1} @ {2:.6f} {3}'.format(-dif, coin, price, trade_currency)
+            pair = coin+trade_currency
+            if pair == 'BTCETH' and trade_currency == 'ETH':
+                pair = 'ETHBTC'
+            if qty < row.minqty:
+                self.portfolio.set(coin, column='Status', value='Trade quantity too small')
+            elif qty > row.maxqty:
+                self.portfolio.set(coin, column='Status', value='Trade quantity too large')
+            elif qty * price < row.minnotional:
+                self.portfolio.set(coin, column='Status', value='Trade value too small')
             else:
-                action = 'Buy {0:.6f} {1} @ {2:.6f} {3}'.format(dif, coin, price, trade_currency)
+                if dif < 0:
+                    side = SIDE_SELL
+                else:
+                    side = SIDE_BUY
+                action = '{0} {1:.6f} {2} @ {3:.6f} {4}'.format(side, qty, coin, price, trade_currency)
+                try:
+                    order = self.client.create_test_order(symbol = pair,
+                                                         side = side,
+                                                         type = ORDER_TYPE_LIMIT,
+                                                         timeInForce = TIME_IN_FORCE_GTC,
+                                                         quantity = round_decimal(qty, row.stepsize),
+                                                         price = price)
+                except Exception as e:
+                    self.portfolio.set(coin, column='Status', value=e)
+                else:
+                    self.portfolio.set(coin, column='Status', value='Trade Ready')
             if coin == trade_currency:
                 action = 'Trade Currency'
             self.portfolio.set(coin, column='Action', value=action)
+            
         
     def currency_change(self, event):
         self.populate_portfolio()
@@ -160,17 +188,22 @@ class BalanceGUI(tk.Frame):
         for coin in self.coins['coin']:            
             balance = self.client.get_asset_balance(asset=coin)
             pair = coin+trade_currency
-            if pair == 'BTCETH' and self.trade_currency.get() == 'ETH':
+            if pair == 'BTCETH' and trade_currency == 'ETH':
                 pair = 'ETHBTC'
             if pair == trade_currency+trade_currency:
                 price = 1.0
             else:
                 price = float(self.client.get_symbol_ticker(symbol = pair)['price'])#float(next((item for item in prices if item['symbol'] == pair), {'price': 1})['price'])
+                symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
             if pair == 'ETHBTC' and trade_currency == 'ETH':
                 price = 1.0/price
-            row = {'coin': coin, 'exchange_balance': float(balance['free']), 'price': price}
+            row = {'coin': coin, 'exchange_balance': float(balance['free']), 'price': price,
+                   'minprice': float(symbolinfo[0]['minPrice']), 'maxprice': float(symbolinfo[0]['maxPrice']), 'ticksize': float(symbolinfo[0]['tickSize']),
+                   'minqty': float(symbolinfo[1]['minQty']), 'maxqty': float(symbolinfo[1]['maxQty']), 'stepsize': float(symbolinfo[1]['stepSize']),                   
+                   'minnotional': float(symbolinfo[2]['minNotional'])}
             exchange_coins.append(row)
         exchange_coins = pd.DataFrame(exchange_coins)
+        print exchange_coins
 
         self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
         self.coins['actual'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
