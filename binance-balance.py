@@ -72,6 +72,8 @@ class BalanceGUI(tk.Frame):
         self.trade_currency_opt['state'] = 'disabled'
 
         self.test_socket = tk.Button(self.controls_view, text='Test Sockets', command=self.test_sockets)
+        self.test_socket.grid(row=0, column=5, sticky=tk.E+tk.W)
+        self.test_socket = tk.Button(self.controls_view, text='Close Sockets', command=self.close_sockets)
         self.test_socket.grid(row=1, column=5, sticky=tk.E+tk.W)
         
         
@@ -84,26 +86,17 @@ class BalanceGUI(tk.Frame):
         self.stream = tk.Label(self.stream_view, textvariable = self.commands, justify=tk.LEFT)
         self.stream.grid(row=0, column=0, sticky=tk.E+tk.W)
 
-        #start websocket manager
-    
-
-        
-        
-
     def test_sockets(self):
-        print 'test 0'
         self.bm = BinanceSocketManager(self.client)
         self.bm.start()
-        self.diff_key = self.bm.start_kline_socket('BNBBTC', self.process_message, interval=KLINE_INTERVAL_30MINUTE)
-        self.diff_key2 = self.bm.start_kline_socket('ETHBTC', self.process_message, interval=KLINE_INTERVAL_30MINUTE)
-        print 'test 1'
-        sleep(10)
-        self.bm.close()
-        print 'test 2'
+        self.test_socket = self.bm.start_symbol_ticker_socket('ETHBTC', self.process_message)
 
-        
+    def close_sockets(self):
+        self.bm.stop_socket(self.test_socket)
+        self.bm.close()
+    
     def process_message(self, msg):
-        print(msg)
+        print('bid: {0}\task{1}'.format(msg['b'], msg['a']))
     
     def api_enter(self):
         api_key = self.key_entry.get()
@@ -204,7 +197,7 @@ class BalanceGUI(tk.Frame):
             row = {'coin': coin, 'exchange_balance': float(balance['free']), 'price': price,
                    'minprice': float(symbolinfo[0]['minPrice']), 'maxprice': float(symbolinfo[0]['maxPrice']), 'ticksize': float(symbolinfo[0]['tickSize']),
                    'minqty': float(symbolinfo[1]['minQty']), 'maxqty': float(symbolinfo[1]['maxQty']), 'stepsize': float(symbolinfo[1]['stepSize']),                   
-                   'minnotional': float(symbolinfo[2]['minNotional'])}
+                   'minnotional': float(symbolinfo[2]['minNotional']), 'symbol': pair}
             exchange_coins.append(row)
         exchange_coins = pd.DataFrame(exchange_coins)
 
