@@ -11,7 +11,7 @@ from time import sleep
 
 def round_decimal(num, decimal):
     x = np.round(num/decimal, 0)*decimal
-    return '{0:.6f}'.format(x).rstrip('0').rstrip('.')
+    return '{0:.8f}'.format(x).rstrip('0').rstrip('.')
 
 class BalanceGUI(tk.Frame):
     def __init__(self, parent, coins):
@@ -30,7 +30,7 @@ class BalanceGUI(tk.Frame):
             if label == 'Action':
                 self.portfolio.column(label, width=250)
             elif label == 'Status':
-                self.portfolio.column(label, width=600)
+                self.portfolio.column(label, width=250)
             else:
                 self.portfolio.column(label, width=100)
             self.portfolio.heading(label, text=label)
@@ -60,8 +60,8 @@ class BalanceGUI(tk.Frame):
         self.rebalance_button.grid(row=1,column=4, sticky=tk.E+tk.W)
 
         self.ordertype = tk.StringVar()
-        self.ordertype.set('Order Type')
-        self.orderopt = tk.OptionMenu(self.controls_view, self.ordertype, 'Market', 'Adaptive Limit', 'Median Limit')
+        self.ordertype.set('Market-Limit')
+        self.orderopt = tk.OptionMenu(self.controls_view, self.ordertype, 'Market', 'Market Limit')
         self.orderopt.grid(row=1, column=0, stick=tk.E+tk.W)
         self.orderopt['state'] = 'disabled'
 
@@ -138,7 +138,7 @@ class BalanceGUI(tk.Frame):
         self.rebalance_button['state'] = 'normal'
         self.populate_portfolio()
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
-
+        trade_type = self.ordertype.get()
         trade_currency = self.trade_currency.get()
         for row in self.coins.itertuples():
             coin = row.coin
@@ -154,7 +154,7 @@ class BalanceGUI(tk.Frame):
             elif qty * price < row.minnotional:
                 self.portfolio.set(coin, column='Status', value='Trade value too small')
             elif pair == trade_currency+trade_currency:
-                self.portfolio.set(coin, column='Status', value='Waiting')
+                self.portfolio.set(coin, column='Status', value='Ready')
             else:
                 if dif < 0:
                     side = SIDE_SELL
@@ -162,18 +162,24 @@ class BalanceGUI(tk.Frame):
                     side = SIDE_BUY
                 action = '{0} {1} {2} @ {3} {4}/{2}'.format(side, round_decimal(qty, row.stepsize), coin, round_decimal(price, row.ticksize), trade_currency)
                 try:
-                    order = self.client.create_test_order(symbol = pair,
-                                                         side = side,
-                                                         type = ORDER_TYPE_LIMIT,
-                                                         timeInForce = TIME_IN_FORCE_GTC,
-                                                         quantity = round_decimal(qty, row.stepsize),
-                                                         price = round_decimal(price, row.ticksize))
+                    if trade_type == 'Market-Limit':
+                        order = self.client.create_test_order(symbol = pair,
+                                                             side = side,
+                                                             type = ORDER_TYPE_LIMIT,
+                                                             timeInForce = TIME_IN_FORCE_GTC,
+                                                             quantity = round_decimal(qty, row.stepsize),
+                                                             price = round_decimal(price, row.ticksize))
+                    elif trade_type == 'Market':
+                        order = self.client.create_test_order(symbol = pair,
+                                                             side = side,
+                                                             type = ORDER_TYPE_MARKET,
+                                                             quantity = round_decimal(qty, row.stepsize))                    
                 except Exception as e:
                     self.portfolio.set(coin, column='Status', value=e)
                 else:
                     self.portfolio.set(coin, column='Status', value='Trade Ready')
             if coin == trade_currency:
-                action = 'Trade Currency'
+                action = 'Mediate Trades'
             self.portfolio.set(coin, column='Action', value=action)
             
         
