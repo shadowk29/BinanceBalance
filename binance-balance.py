@@ -149,21 +149,28 @@ class BalanceGUI(tk.Frame):
 
 
     def update_price(self, msg):
-        
         coin = msg['s'][:-len(self.trade_currency.get())]
         ask = float(msg['a'])
         bid = float(msg['b'])
-
+        
         self.portfolio.set(coin, column='Ask', value=round_decimal(ask,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
         self.coins.loc[self.coins['coin'] == coin, 'askprice'] = ask
-        value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0])*ask
-        self.coins.loc[self.coins['coin'] == coin, 'value'] = value
-        actual = self.coins.loc[self.coins['coin'] == coin, 'value'].values[0] / np.sum(self.coins['value'].values) * 100.0
-        self.coins.loc[self.coins['coin'] == coin, 'actual'] = actual
-        self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(actual))
+        
+        
+        
         self.portfolio.set(coin, column='Bid', value=round_decimal(bid,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
         self.coins.loc[self.coins['coin'] == coin, 'bidprice'] = bid
 
+
+        value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0])*ask
+        self.coins.loc[self.coins['coin'] == coin, 'value'] = value
+
+        self.total = np.sum(self.coins['value'])
+        
+        self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
+        for coin in self.coins['coin']:
+            actual = self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]
+            self.portfolio.set(coin, column='Actual', value='{0:.8f}%'.format(actual))
 
         
     def update_commands(self, string):
