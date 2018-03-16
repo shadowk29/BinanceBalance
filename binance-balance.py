@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime
 from tkinter import messagebox
 import Queue
-from datetime import datetime
+from twisted.internet import reactor
 
 def round_decimal(num, decimal):
     if decimal > 0:
@@ -37,8 +37,10 @@ class BalanceGUI(tk.Frame):
         self.portfolio = ttk.Treeview(self.portfolio_view)
         self.portfolio['columns']=('Stored','Exchange', 'Target','Actual', 'Bid', 'Ask', 'Action', 'Status')
         for label in self.portfolio['columns']:
-            if label == 'Action' or label == 'Status':
+            if label == 'Status':
                 self.portfolio.column(label, width=250)
+            elif label == 'Action':
+                self.portfolio.column(label, width=150)
             else:
                 self.portfolio.column(label, width=100)
             self.portfolio.heading(label, text=label)
@@ -52,7 +54,7 @@ class BalanceGUI(tk.Frame):
         key_label.grid(row=0, column=0,sticky=tk.E+tk.W)
         secret_label = tk.Label(self.controls_view, text='API Secret')
         secret_label.grid(row=0, column=2,sticky=tk.E+tk.W)
-        self.key_entry = tk.Entry(self.controls_view)
+        self.key_entry = tk.Entry(self.controls_view, show='*')
         self.key_entry.grid(row=0, column=1,sticky=tk.E+tk.W)
         self.secret_entry = tk.Entry(self.controls_view, show='*')
         self.secret_entry.grid(row=0, column=3,sticky=tk.E+tk.W)
@@ -92,6 +94,7 @@ class BalanceGUI(tk.Frame):
 
     def on_closing(self):
         self.bm.close()
+        reactor.stop()
         self.parent.destroy()
     
     def api_enter(self):
@@ -119,6 +122,9 @@ class BalanceGUI(tk.Frame):
         self.start_websockets()
 
     def queue_msg(self, msg):
+        if msg['e'] == 'error':
+            self.bm.close()
+            self.start_websockets()
         if not self.pause_sockets:
             self.queue.put(msg)
         
@@ -197,7 +203,7 @@ class BalanceGUI(tk.Frame):
                 price = row.askprice
             if side == SIDE_SELL and qty > balance and coin != self.trade_coin:
                 qty = balance
-                status = 'Insufficient funds'
+                status = 'Insufficient funds for complete rebalance'
             action = 'None'
             if coin == self.trade_coin:
                 action = 'Ready'
