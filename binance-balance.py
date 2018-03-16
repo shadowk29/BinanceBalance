@@ -92,9 +92,8 @@ class BalanceGUI(tk.Frame):
         self.stream.grid(row=0, column=0, sticky=tk.E+tk.W)
 
     def on_closing(self):
-        if messagebox.askokcancel("Quit", "Do you want to quit?"):
-            self.bm.close()
-            self.parent.destroy()
+        self.bm.close()
+        self.parent.destroy()
         
     def test_sockets(self):
         self.bm = BinanceSocketManager(self.client)
@@ -170,8 +169,7 @@ class BalanceGUI(tk.Frame):
         self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
         for coin in self.coins['coin']:
             actual = self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]
-            self.portfolio.set(coin, column='Actual', value='{0:.8f}%'.format(actual))
-
+            self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(actual))
         
     def update_commands(self, string):
         self.commands.set(self.commands.get() + '\n' + string)
