@@ -27,6 +27,7 @@ class BalanceGUI(tk.Frame):
         parent.deiconify()
         self.coins = coins
         self.coins_base = coins
+        self.lock = False
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -148,28 +149,31 @@ class BalanceGUI(tk.Frame):
 
 
     def update_price(self, msg):
-        coin = msg['s'][:-len(self.trade_currency.get())]
-        ask = float(msg['a'])
-        bid = float(msg['b'])
-        
-        self.portfolio.set(coin, column='Ask', value=round_decimal(ask,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
-        self.coins.loc[self.coins['coin'] == coin, 'askprice'] = ask
-        
-        
-        
-        self.portfolio.set(coin, column='Bid', value=round_decimal(bid,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
-        self.coins.loc[self.coins['coin'] == coin, 'bidprice'] = bid
+        if not self.lock:
+            coin = msg['s'][:-len(self.trade_currency.get())]
+            ask = float(msg['a'])
+            bid = float(msg['b'])
+            
+            self.portfolio.set(coin, column='Ask', value=round_decimal(ask,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
+            self.coins.loc[self.coins['coin'] == coin, 'askprice'] = ask
+            
+            
+            
+            self.portfolio.set(coin, column='Bid', value=round_decimal(bid,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
+            self.coins.loc[self.coins['coin'] == coin, 'bidprice'] = bid
 
 
-        value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0])*ask
-        self.coins.loc[self.coins['coin'] == coin, 'value'] = value
+            value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0])*ask
+            self.coins.loc[self.coins['coin'] == coin, 'value'] = value
 
-        self.total = np.sum(self.coins['value'])
-        
-        self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
-        for coin in self.coins['coin']:
-            actual = self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]
-            self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(actual))
+            self.total = np.sum(self.coins['value'])
+            
+            self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
+            for coin in self.coins['coin']:
+                actual = self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]
+                self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(actual))
+        else:
+            print '{0} locked'.format(msg['s'])
         
     def update_commands(self, string):
         self.commands.set(self.commands.get() + '\n' + string)
@@ -177,53 +181,54 @@ class BalanceGUI(tk.Frame):
             f.write('\n' + string)
                           
     def dryrun(self):
-        self.rebalance_button['state'] = 'normal'
-        self.populate_portfolio()
-        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
-        trade_type = self.ordertype.get()
-        trade_currency = self.trade_currency.get()
-        for row in self.coins.itertuples():
-            coin = row.coin
-            dif = row.difference
-            qty = np.absolute(dif)
-            price = row.price
-            pair = coin+trade_currency
-            action = 'None'
-            if qty < row.minqty:
-                self.portfolio.set(coin, column='Status', value='Trade quantity too small')
-            elif qty > row.maxqty:
-                self.portfolio.set(coin, column='Status', value='Trade quantity too large')
-            elif qty * price < row.minnotional:
-                self.portfolio.set(coin, column='Status', value='Trade value too small')
-            elif pair == trade_currency+trade_currency:
-                self.portfolio.set(coin, column='Status', value='Ready')
-            else:
-                if dif < 0:
-                    side = SIDE_SELL
-                else:
-                    side = SIDE_BUY
-                action = '{0} {1} {2} @ {3} {4}/{2}'.format(side, round_decimal(qty, row.stepsize), coin, round_decimal(price, row.ticksize), trade_currency)
-                try:
-                    if trade_type == 'Market-Limit':
-                        order = self.client.create_test_order(symbol = pair,
-                                                             side = side,
-                                                             type = ORDER_TYPE_LIMIT,
-                                                             timeInForce = TIME_IN_FORCE_GTC,
-                                                             quantity = round_decimal(qty, row.stepsize),
-                                                             price = round_decimal(price, row.ticksize))
-                    elif trade_type == 'Market':
-                        order = self.client.create_test_order(symbol = pair,
-                                                             side = side,
-                                                             type = ORDER_TYPE_MARKET,
-                                                             quantity = round_decimal(qty, row.stepsize))                    
-                except Exception as e:
-                    self.portfolio.set(coin, column='Status', value=e)
-                else:
-                    self.portfolio.set(coin, column='Status', value='Trade Ready')
-            if coin == trade_currency:
-                action = 'Mediate Trades'
-            self.portfolio.set(coin, column='Action', value=action)
-            
+        self.lock = True
+##        self.rebalance_button['state'] = 'normal'
+##        self.populate_portfolio()
+##        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
+##        trade_type = self.ordertype.get()
+##        trade_currency = self.trade_currency.get()
+##        for row in self.coins.itertuples():
+##            coin = row.coin
+##            dif = row.difference
+##            qty = np.absolute(dif)
+##            price = row.price
+##            pair = coin+trade_currency
+##            action = 'None'
+##            if qty < row.minqty:
+##                self.portfolio.set(coin, column='Status', value='Trade quantity too small')
+##            elif qty > row.maxqty:
+##                self.portfolio.set(coin, column='Status', value='Trade quantity too large')
+##            elif qty * price < row.minnotional:
+##                self.portfolio.set(coin, column='Status', value='Trade value too small')
+##            elif pair == trade_currency+trade_currency:
+##                self.portfolio.set(coin, column='Status', value='Ready')
+##            else:
+##                if dif < 0:
+##                    side = SIDE_SELL
+##                else:
+##                    side = SIDE_BUY
+##                action = '{0} {1} {2} @ {3} {4}/{2}'.format(side, round_decimal(qty, row.stepsize), coin, round_decimal(price, row.ticksize), trade_currency)
+##                try:
+##                    if trade_type == 'Market-Limit':
+##                        order = self.client.create_test_order(symbol = pair,
+##                                                             side = side,
+##                                                             type = ORDER_TYPE_LIMIT,
+##                                                             timeInForce = TIME_IN_FORCE_GTC,
+##                                                             quantity = round_decimal(qty, row.stepsize),
+##                                                             price = round_decimal(price, row.ticksize))
+##                    elif trade_type == 'Market':
+##                        order = self.client.create_test_order(symbol = pair,
+##                                                             side = side,
+##                                                             type = ORDER_TYPE_MARKET,
+##                                                             quantity = round_decimal(qty, row.stepsize))                    
+##                except Exception as e:
+##                    self.portfolio.set(coin, column='Status', value=e)
+##                else:
+##                    self.portfolio.set(coin, column='Status', value='Trade Ready')
+##            if coin == trade_currency:
+##                action = 'Mediate Trades'
+##            self.portfolio.set(coin, column='Action', value=action)
+##            
         
     def currency_change(self, event):
         self.populate_portfolio()
