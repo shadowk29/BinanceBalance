@@ -8,15 +8,22 @@ from binance.enums import *
 import numpy as np
 from datetime import datetime
 from time import sleep
+from tkinter import messagebox
 
 def round_decimal(num, decimal):
-    x = np.round(num/decimal, 0)*decimal
+    if decimal > 0:
+        x = np.round(num/decimal, 0)*decimal
+    else:
+        x = np.round(num, 8)
     return '{0:.8f}'.format(x).rstrip('0').rstrip('.')
+
+
 
 class BalanceGUI(tk.Frame):
     def __init__(self, parent, coins):
         tk.Frame.__init__(self, parent)
-        
+        parent.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.parent = parent
         parent.deiconify()
         self.coins = coins
         self.coins_base = coins
@@ -25,11 +32,9 @@ class BalanceGUI(tk.Frame):
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
         self.portfolio_view.grid(row=0,column=0, sticky=tk.E+tk.W)
         self.portfolio = ttk.Treeview(self.portfolio_view)
-        self.portfolio['columns']=('Stored','Exchange', 'Target','Actual', 'Action', 'Status')
+        self.portfolio['columns']=('Stored','Exchange', 'Target','Actual', 'Bid', 'Ask', 'Action', 'Status')
         for label in self.portfolio['columns']:
-            if label == 'Action':
-                self.portfolio.column(label, width=250)
-            elif label == 'Status':
+            if label == 'Action' or label == 'Status':
                 self.portfolio.column(label, width=250)
             else:
                 self.portfolio.column(label, width=100)
@@ -86,6 +91,11 @@ class BalanceGUI(tk.Frame):
         self.stream = tk.Label(self.stream_view, textvariable = self.commands, justify=tk.LEFT)
         self.stream.grid(row=0, column=0, sticky=tk.E+tk.W)
 
+    def on_closing(self):
+        if messagebox.askokcancel("Quit", "Do you want to quit?"):
+            self.bm.close()
+            self.parent.destroy()
+        
     def test_sockets(self):
         self.bm = BinanceSocketManager(self.client)
         self.bm.start()
@@ -119,9 +129,31 @@ class BalanceGUI(tk.Frame):
         self.update_commands('{0}: System status: {1}'.format(datetime.today().replace(microsecond=0), status['msg']))
         
         self.populate_portfolio()
+
+        self.start_websockets()
         
+    def start_websockets(self):
+        self.bm = BinanceSocketManager(self.client)
+        self.bm.start()
+        trade_currency = self.trade_currency.get()
+        symbols = self.coins['symbol'].tolist()
+        symbols.remove(trade_currency+trade_currency)
+
+        self.sockets = {}
+        for symbol in symbols:
+            self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.update_price)
+        self.sockets['user'] = self.bm.start_user_socket(self.update_user)
+
+    def update_user(self, msg):
+        print msg
 
 
+    def update_price(self, msg):
+        coin = msg['s'][:-len(self.trade_currency.get())]
+        self.portfolio.set(coin, column='Ask', value=msg['a'])
+        self.portfolio.set(coin, column='Bid', value=msg['b'])
+
+        
     def update_commands(self, string):
         self.commands.set(self.commands.get() + '\n' + string)
         with open('binance_balance_log.log','a') as f:
@@ -178,39 +210,45 @@ class BalanceGUI(tk.Frame):
         
     def currency_change(self, event):
         self.populate_portfolio()
-        
+
+
+
     def populate_portfolio(self):
         self.coins = self.coins_base
         self.portfolio.delete(*self.portfolio.get_children())
         exchange_coins = []
         trade_currency = self.trade_currency.get()
         
-        
-        for coin in self.coins['coin']:            
-            balance = self.client.get_asset_balance(asset=coin)
+        for coin in self.coins['coin']:
             pair = coin+trade_currency
-            if pair == trade_currency+trade_currency:
-                price = 1.0
-            else:
+            balance = self.client.get_asset_balance(asset=coin)
+            if coin != trade_currency:
                 price = float(self.client.get_symbol_ticker(symbol = pair)['price'])
                 symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
-            row = {'coin': coin, 'exchange_balance': float(balance['free']), 'price': price,
+                row = {'coin': coin, 'exchange_balance': float(balance['free']),
                    'minprice': float(symbolinfo[0]['minPrice']), 'maxprice': float(symbolinfo[0]['maxPrice']), 'ticksize': float(symbolinfo[0]['tickSize']),
                    'minqty': float(symbolinfo[1]['minQty']), 'maxqty': float(symbolinfo[1]['maxQty']), 'stepsize': float(symbolinfo[1]['stepSize']),                   
-                   'minnotional': float(symbolinfo[2]['minNotional']), 'symbol': pair}
+                   'minnotional': float(symbolinfo[2]['minNotional']), 'symbol': pair, 'askprice' : price, 'bidprice': price, 'price': price}
+            else:
+                fixed_balance = self.coins.loc[self.coins['coin'] == coin]['fixed_balance']
+                row = {'coin': coin, 'exchange_balance': float(balance['free']),
+                   'minprice': 0, 'maxprice': 0, 'ticksize': 0,
+                   'minqty': 0, 'maxqty': 0, 'stepsize': 0,                   
+                   'minnotional': 0, 'symbol': coin+coin, 'askprice' : 1.0, 'bidprice': 1.0, 'price': 1.0}
             exchange_coins.append(row)
         exchange_coins = pd.DataFrame(exchange_coins)
-
         self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
 
         self.coins['actual'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
         self.total = np.sum(self.coins['actual'])
         self.coins.loc[:,'actual'] *= 100.0/self.total
 
-        self.update_commands('{0}: Portfolio Value: {1:.6f} {2}'.format(datetime.today().replace(microsecond=0), self.total, self.trade_currency.get()))
+        
         i = 0
         for row in self.coins.itertuples():
-            self.portfolio.insert("" , i, iid=row.coin, text=row.coin, values=(round_decimal(row.fixed_balance, row.ticksize), round_decimal(row.exchange_balance, row.ticksize), '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), '', 'Waiting'))
+            self.portfolio.insert("" , i, iid=row.coin, text=row.coin,
+                                  values=(round_decimal(row.fixed_balance, row.ticksize), round_decimal(row.exchange_balance, row.ticksize),
+                                          '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), '','','','Waiting'))
             i += 1
         
     def rebalance(self):
