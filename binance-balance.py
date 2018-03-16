@@ -7,10 +7,9 @@ from binance.websockets import BinanceSocketManager
 from binance.enums import *
 import numpy as np
 from datetime import datetime
-from time import sleep
 from tkinter import messagebox
-import threading
 import Queue
+from datetime import datetime
 
 def round_decimal(num, decimal):
     if decimal > 0:
@@ -19,10 +18,6 @@ def round_decimal(num, decimal):
         x = np.round(num, 8)
     return '{0:.8f}'.format(x).rstrip('0').rstrip('.')
 
-class ThreadedTask(threading.Thread):
-    def __init__(self, queue):
-        threading.Thread.__init__(self)
-        self.queue = queue
 
 class BalanceGUI(tk.Frame):
     def __init__(self, parent, coins):
@@ -74,7 +69,7 @@ class BalanceGUI(tk.Frame):
 
         self.ordertype = tk.StringVar()
         self.ordertype.set('Market')
-        self.orderopt = tk.OptionMenu(self.controls_view, self.ordertype, 'Market')
+        self.orderopt = tk.OptionMenu(self.controls_view, self.ordertype, 'Market', 'Market-Limit')
         self.orderopt.grid(row=1, column=0, stick=tk.E+tk.W)
         self.orderopt['state'] = 'disabled'
 
@@ -92,6 +87,8 @@ class BalanceGUI(tk.Frame):
         self.commands.set('{0}: Ready'.format(datetime.today().replace(microsecond=0)))
         self.stream = tk.Label(self.stream_view, textvariable = self.commands, justify=tk.LEFT)
         self.stream.grid(row=0, column=0, sticky=tk.E+tk.W)
+
+        self.parent.after(10, self.process_queue)
 
     def on_closing(self):
         self.bm.close()
@@ -124,8 +121,6 @@ class BalanceGUI(tk.Frame):
     def queue_msg(self, msg):
         if not self.pause_sockets:
             self.queue.put(msg)
-        else:
-            print 'paused'
         
     def process_queue(self):
         try:
@@ -186,8 +181,10 @@ class BalanceGUI(tk.Frame):
         self.rebalance_button['state'] = 'normal'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         for row in self.coins.itertuples():
+            status = ''
             coin = row.coin
             pair = coin+self.trade_coin
+            balance = row.exchange_balance
             actual = row.actual
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(actual))
             dif = row.difference
@@ -198,6 +195,9 @@ class BalanceGUI(tk.Frame):
             else:
                 side = SIDE_BUY
                 price = row.askprice
+            if side == SIDE_SELL and qty > balance and coin != self.trade_coin:
+                qty = balance
+                status = 'Insufficient funds'
             action = 'None'
             if coin == self.trade_coin:
                 action = 'Ready'
@@ -226,14 +226,13 @@ class BalanceGUI(tk.Frame):
                                                              type = ORDER_TYPE_MARKET,
                                                              quantity = round_decimal(qty, row.stepsize))                    
                 except Exception as e:
-                    self.portfolio.set(coin, column='Status', value=e)
-                else:
-                    self.portfolio.set(coin, column='Status', value='Trade Ready')
+                    status = e
+            self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
             self.pause_sockets = False
         
     def currency_change(self, event):
-        self.populate_portfolio()
+        print 'Not yet supported'
 
 
 
@@ -276,11 +275,64 @@ class BalanceGUI(tk.Frame):
                                   values=(round_decimal(row.fixed_balance, row.stepsize), round_decimal(row.exchange_balance, row.stepsize),
                                           '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), round_decimal(row.price, row.ticksize),round_decimal(row.price, row.ticksize),'','Waiting'))
             i += 1
-        ThreadedTask(self.queue).start()
-        self.parent.after(10, self.process_queue)
+        
         
     def rebalance(self):
         self.rebalance_button['state'] = 'disabled'
+        self.pause_sockets = True
+        while self.up_to_date == False:
+            continue
+        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
+        for row in self.coins.itertuples():
+            coin = row.coin
+            balance = row.exchange_balance
+            pair = coin+self.trade_coin
+            actual = row.actual
+            self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(actual))
+            dif = row.difference
+            qty = np.absolute(dif)
+            if dif < 0:
+                side = SIDE_SELL
+                price = row.bidprice
+            else:
+                side = SIDE_BUY
+                price = row.askprice
+            if side == SIDE_SELL and qty > balance:
+                qty = balance
+            action = 'None'
+            if coin == self.trade_coin:
+                action = 'Ready'
+            elif qty < row.minqty:
+                action = 'Trade quantity too small'
+            elif qty > row.maxqty:
+                action = 'Trade quantity too large'
+            elif qty * price < row.minnotional:
+                action = 'Trade value too small'
+            else:
+                action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
+                
+                trade_type = self.ordertype.get()
+                trade_currency = self.trade_coin
+                try:
+                    if trade_type == 'Market-Limit':
+                        order = self.client.create_order(symbol = pair,
+                                                             side = side,
+                                                             type = ORDER_TYPE_LIMIT,
+                                                             timeInForce = TIME_IN_FORCE_GTC,
+                                                             quantity = round_decimal(qty, row.stepsize),
+                                                             price = round_decimal(price, row.ticksize))
+                    elif trade_type == 'Market':
+                        order = self.client.create_order(symbol = pair,
+                                                             side = side,
+                                                             type = ORDER_TYPE_MARKET,
+                                                             quantity = round_decimal(qty, row.stepsize))                    
+                except Exception as e:
+                    self.portfolio.set(coin, column='Status', value=e)
+                else:
+                    self.portfolio.set(coin, column='Status', value='Trade Ready')
+            self.portfolio.set(coin, column='Action', value=action)
+            self.pause_sockets = False
+   
     
 def main():
     root = tk.Tk()
