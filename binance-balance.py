@@ -149,9 +149,21 @@ class BalanceGUI(tk.Frame):
 
 
     def update_price(self, msg):
+        
         coin = msg['s'][:-len(self.trade_currency.get())]
-        self.portfolio.set(coin, column='Ask', value=msg['a'])
-        self.portfolio.set(coin, column='Bid', value=msg['b'])
+        ask = float(msg['a'])
+        bid = float(msg['b'])
+
+        self.portfolio.set(coin, column='Ask', value=round_decimal(ask,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
+        self.coins.loc[self.coins['coin'] == coin, 'askprice'] = ask
+        value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0])*ask
+        self.coins.loc[self.coins['coin'] == coin, 'value'] = value
+        actual = self.coins.loc[self.coins['coin'] == coin, 'value'].values[0] / np.sum(self.coins['value'].values) * 100.0
+        self.coins.loc[self.coins['coin'] == coin, 'actual'] = actual
+        self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(actual))
+        self.portfolio.set(coin, column='Bid', value=round_decimal(bid,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
+        self.coins.loc[self.coins['coin'] == coin, 'bidprice'] = bid
+
 
         
     def update_commands(self, string):
@@ -239,9 +251,9 @@ class BalanceGUI(tk.Frame):
         exchange_coins = pd.DataFrame(exchange_coins)
         self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
 
-        self.coins['actual'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
-        self.total = np.sum(self.coins['actual'])
-        self.coins.loc[:,'actual'] *= 100.0/self.total
+        self.coins['value'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
+        self.total = np.sum(self.coins['value'])
+        self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
 
         
         i = 0
