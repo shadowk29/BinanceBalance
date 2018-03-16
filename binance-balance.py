@@ -264,8 +264,8 @@ class BalanceGUI(tk.Frame):
         i = 0
         for row in self.coins.itertuples():
             self.portfolio.insert("" , i, iid=row.coin, text=row.coin,
-                                  values=(round_decimal(row.fixed_balance, row.ticksize), round_decimal(row.exchange_balance, row.ticksize),
-                                          '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), '','','','Waiting'))
+                                  values=(round_decimal(row.fixed_balance, row.stepsize), round_decimal(row.exchange_balance, row.stepsize),
+                                          '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), round_decimal(row.price, row.ticksize),round_decimal(row.price, row.ticksize),'','Waiting'))
             i += 1
         
     def rebalance(self):
