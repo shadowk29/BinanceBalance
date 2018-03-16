@@ -33,6 +33,8 @@ class BalanceGUI(tk.Frame):
         self.coins = coins
         self.coins_base = coins
         self.queue = Queue.Queue()
+        self.pause_sockets = False
+        self.up_to_date = False
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -95,9 +97,6 @@ class BalanceGUI(tk.Frame):
         self.bm.close()
         self.parent.destroy()
     
-    def process_message(self, msg):
-        print('bid: {0}\task{1}'.format(msg['b'], msg['a']))
-    
     def api_enter(self):
         api_key = self.key_entry.get()
         self.key_entry.delete(0,'end')
@@ -123,7 +122,10 @@ class BalanceGUI(tk.Frame):
         self.start_websockets()
 
     def queue_msg(self, msg):
-         self.queue.put(msg)
+        if not self.pause_sockets:
+            self.queue.put(msg)
+        else:
+            print 'paused'
         
     def process_queue(self):
         try:
@@ -131,9 +133,10 @@ class BalanceGUI(tk.Frame):
         except Queue.Empty:
             pass
         else:
-            print 'proc {0}'.format(msg['s'])
+            self.up_to_date = False
             self.update_price(msg)
-            print 'done {0}'.format(msg['s'])
+            if self.queue.qsize() == 0:
+                self.up_to_date = True
         self.master.after(10, self.process_queue)
 
     
@@ -177,6 +180,9 @@ class BalanceGUI(tk.Frame):
             f.write('\n' + string)
                           
     def dryrun(self):
+        self.pause_sockets = True
+        while self.up_to_date == False:
+            continue
         self.rebalance_button['state'] = 'normal'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         for row in self.coins.itertuples():
@@ -224,6 +230,7 @@ class BalanceGUI(tk.Frame):
                 else:
                     self.portfolio.set(coin, column='Status', value='Trade Ready')
             self.portfolio.set(coin, column='Action', value=action)
+            self.pause_sockets = False
         
     def currency_change(self, event):
         self.populate_portfolio()
