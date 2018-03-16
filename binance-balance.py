@@ -202,7 +202,6 @@ class BalanceGUI(tk.Frame):
                 side = SIDE_BUY
                 price = row.askprice
             if side == SIDE_SELL and qty > balance and coin != self.trade_coin:
-                qty = balance
                 status = 'Insufficient funds for complete rebalance'
             action = 'None'
             if coin == self.trade_coin:
@@ -292,6 +291,7 @@ class BalanceGUI(tk.Frame):
         for row in self.coins.itertuples():
             coin = row.coin
             balance = row.exchange_balance
+            
             pair = coin+self.trade_coin
             actual = row.actual
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(actual))
