@@ -165,7 +165,7 @@ class BalanceGUI(tk.Frame):
         self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
 
     def update_balance(self, msg):
-        balances = msb['B']
+        balances = msg['B']
         for balance in balances:
             coin = balance['a']
             exchange_balance = balance['f'] + balance['l']
