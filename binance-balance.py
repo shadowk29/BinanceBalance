@@ -93,9 +93,14 @@ class BalanceGUI(tk.Frame):
         self.parent.after(10, self.process_queue)
 
     def on_closing(self):
-        self.bm.close()
-        reactor.stop()
-        self.parent.destroy()
+        try:
+            self.bm.close()
+            reactor.stop()
+        except AttributeError:
+            self.parent.destroy()
+        else:
+            self.parent.destroy()
+        
     
     def api_enter(self):
         api_key = self.key_entry.get()
@@ -134,10 +139,16 @@ class BalanceGUI(tk.Frame):
         except Queue.Empty:
             pass
         else:
-            self.up_to_date = False
-            self.update_price(msg)
-            if self.queue.qsize() == 0:
-                self.up_to_date = True
+            if msg['e'] == '24hrTicker':
+                self.up_to_date = False
+                self.update_price(msg)
+                if self.queue.qsize() == 0:
+                    self.up_to_date = True
+            elif msg['e'] == 'outboundAccountInfo':
+                self.up_to_date = False
+                self.update_balance(msg)
+                if self.queue.qsize() == 0:
+                    self.up_to_date = True
         self.master.after(10, self.process_queue)
 
     
@@ -151,11 +162,24 @@ class BalanceGUI(tk.Frame):
         self.sockets = {}
         for symbol in symbols:
             self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
-        self.sockets['user'] = self.bm.start_user_socket(self.update_user)
+        self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
 
-    def update_user(self, msg):
-        print msg
+    def update_balance(self, msg):
+        balances = msb['B']
+        for balance in balances:
+            coin = balance['a']
+            exchange_balance = balance['f'] + balance['l']
+            self.portfolio.set(coin, column='Exchange', value=round_decimal(exchange_balance,self.coins.loc[self.coins['coin'] == coin, 'stepsize'].values[0]))
+            self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'] = exchange_balance
+            ask = self.coins.loc[self.coins['coin'] == coin, 'askprice'].values[0]
+            value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0])*ask
+            self.coins.loc[self.coins['coin'] == coin, 'value'] = value
 
+        self.total = np.sum(self.coins['value']) 
+        self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
+        for row in self.coins.itertuples():
+            coin = row.coin
+            self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
 
     def update_price(self, msg):
         coin = msg['s'][:-len(self.trade_currency.get())]
@@ -174,6 +198,11 @@ class BalanceGUI(tk.Frame):
         self.total = np.sum(self.coins['value'])
         
         self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
+
+        for row in self.coins.itertuples():
+            coin = row.coin
+            self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
+            
         
     def update_commands(self, string):
         self.commands.set(self.commands.get() + '\n' + string)
