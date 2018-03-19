@@ -10,6 +10,7 @@ from datetime import datetime
 from tkinter import messagebox
 import Queue
 from twisted.internet import reactor
+import os.path
 
 def round_decimal(num, decimal):
     if decimal > 0:
@@ -29,7 +30,7 @@ class BalanceGUI(tk.Frame):
         self.coins_base = coins
         self.queue = Queue.Queue()
         self.pause_sockets = False
-        self.up_to_date = False
+        self.up_to_date = Queue.Queue()
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -90,9 +91,31 @@ class BalanceGUI(tk.Frame):
         self.stream = tk.Label(self.stream_view, textvariable = self.commands, justify=tk.LEFT)
         self.stream.grid(row=0, column=0, sticky=tk.E+tk.W)
 
+
+        self.trades = []
+        self.headers = self.column_headers()
         self.parent.after(10, self.process_queue)
 
+    def empty_queue(self):
+        self.pause_sockets = True
+        ready = False
+        try:
+            ready = self.up_to_date.get(0)
+        except Queue.Empty:
+            ready = False
+            self.parent.after(10, self.empty_queue)
+
     def on_closing(self):
+        self.empty_queue()
+        if len(self.trades) > 0:
+            self.update_commands('Saving trade history')
+            df = pd.DataFrame(self.trades)
+            if os.path.isfile('trade_history.csv'):
+                with open('trade_history.csv','a') as f:
+                    df.to_csv(f, sep=',', header=False, index=False)
+            else:
+                with open('trade_history.csv','w') as f:
+                    df.to_csv(f, sep=',', header=True, index=False)
         try:
             self.bm.close()
             reactor.stop()
@@ -137,20 +160,83 @@ class BalanceGUI(tk.Frame):
         try:
             msg = self.queue.get(0)
         except Queue.Empty:
-            pass
+            if self.pause_sockets and self.up_to_date.qsize() == 0:
+                print 'ending'
+                self.up_to_date.put(True)
         else:
+            msg = self.test_trade_msg()
             if msg['e'] == '24hrTicker':
-                self.up_to_date = False
                 self.update_price(msg)
-                if self.queue.qsize() == 0:
-                    self.up_to_date = True
             elif msg['e'] == 'outboundAccountInfo':
-                self.up_to_date = False
                 self.update_balance(msg)
-                if self.queue.qsize() == 0:
-                    self.up_to_date = True
+            elif msg['e'] == 'executionReport':
+                coin = msg['s'][:-len(self.trade_coin)]
+                savemsg = {self.headers[key] : value for key, value in msg.items()}
+                percent = 100.0*float(savemsg['cumulative_filled_quantity'])/float(savemsg['order_quantity'])
+                if percent < 100:
+                    self.portfolio.set(coin, column='Status', value = 'In Progress: {0:.2f}%'.format(percent))
+                else:
+                    self.portfolio.set(coin, column='Status', value = 'Completed')
+                self.trades.append(savemsg)
         self.master.after(10, self.process_queue)
 
+    def column_headers(self):
+        return {'e': 'event_type',
+                'E': 'event_time',
+                's': 'symbol',
+                'c': 'client_order_id',
+                'S': 'side',
+                'o': 'type',
+                'f': 'time_in_force',
+                'q': 'order_quantity',
+                'p': 'order_price',
+                'F': 'iceberg_quantity',
+                'g': 'ignore_1',
+                'C': 'original_client_order_id',
+                'x': 'current_execution_type',
+                'X': 'current_order_status',
+                'r': 'order_reject_reason',
+                'i': 'order_id',
+                'l': 'last_executed_quantity',
+                'z': 'cumulative_filled_quantity',
+                'L': 'last_executed_price',
+                'n': 'commission_amount',
+                'N': 'commission_asset',
+                'T': 'transction_time',
+                't': 'trade_id',
+                'I': 'ignore_2',
+                'w': 'order_working',
+                'm': 'maker_side',
+                'M': 'ignore_3'}
+
+    def test_trade_msg(self):
+        return {'e': 'executionReport',
+                'E': '1',
+                's': 'ETHBTC',
+                'c': '2',
+                'S': 'BUY',
+                'o': 'MARKET',
+                'f': 'GTC',
+                'q': '123',
+                'p': '0.124',
+                'F': '0.0',
+                'g': '-1',
+                'C': '543',
+                'x': 'NEW',
+                'X': 'NEW',
+                'r': 'NONE',
+                'i': '656',
+                'l': '13.0',
+                'z': '123.0',
+                'L': '0.123',
+                'n': '.00123',
+                'N': 'BNB',
+                'T': '545',
+                't': '7656',
+                'I': '63455',
+                'w': 'false',
+                'm': 'false',
+                'M': 'false'}
     
     def start_websockets(self):
         self.bm = BinanceSocketManager(self.client)
@@ -210,9 +296,7 @@ class BalanceGUI(tk.Frame):
             f.write('\n' + string)
                           
     def dryrun(self):
-        self.pause_sockets = True
-        while self.up_to_date == False:
-            continue
+        self.empty_queue()
         self.rebalance_button['state'] = 'normal'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         for row in self.coins.itertuples():
@@ -313,9 +397,7 @@ class BalanceGUI(tk.Frame):
         
     def rebalance(self):
         self.rebalance_button['state'] = 'disabled'
-        self.pause_sockets = True
-        while self.up_to_date == False:
-            continue
+        self.empty_queue()
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         for row in self.coins.itertuples():
             coin = row.coin
