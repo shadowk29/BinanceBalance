@@ -30,7 +30,6 @@ class BalanceGUI(tk.Frame):
         self.coins_base = coins
         self.queue = Queue.Queue()
         self.pause_sockets = False
-        self.up_to_date = Queue.Queue()
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -98,11 +97,7 @@ class BalanceGUI(tk.Frame):
 
     def empty_queue(self):
         self.pause_sockets = True
-        ready = False
-        try:
-            ready = self.up_to_date.get(0)
-        except Queue.Empty:
-            ready = False
+        if self.queue.qsize() > 0:
             self.parent.after(10, self.empty_queue)
 
     def on_closing(self):
@@ -160,9 +155,7 @@ class BalanceGUI(tk.Frame):
         try:
             msg = self.queue.get(0)
         except Queue.Empty:
-            if self.pause_sockets and self.up_to_date.qsize() == 0:
-                print 'ending'
-                self.up_to_date.put(True)
+            pass
         else:
             msg = self.test_trade_msg()
             if msg['e'] == '24hrTicker':
