@@ -433,6 +433,7 @@ class BalanceGUI(tk.Frame):
                 else:
                     self.trades_placed += 1
                     self.portfolio.set(coin, column='Status', value='Trade Placed')
+                    self.update_commands('Trade placed: {0} {1} {2}'.format(side, round_decimal(qty, row.stepsize), pair))
             self.portfolio.set(coin, column='Action', value=action)
 
     def execute_buys(self):
@@ -481,6 +482,7 @@ class BalanceGUI(tk.Frame):
                 else:
                     self.trades_placed += 1
                     self.portfolio.set(coin, column='Status', value='Trade Placed')
+                    self.update_commands('Trade placed: {0} {1} {2}'.format(side, round_decimal(qty, row.stepsize), pair))
             self.portfolio.set(coin, column='Action', value=action)
    
     
