@@ -29,7 +29,8 @@ class BalanceGUI(tk.Frame):
         self.coins = coins
         self.coins_base = coins
         self.queue = Queue.Queue()
-        self.pause_sockets = False
+        self.trades_placed = 0
+        self.trades_completed = 0
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -95,13 +96,14 @@ class BalanceGUI(tk.Frame):
         self.headers = self.column_headers()
         self.parent.after(10, self.process_queue)
 
-    def empty_queue(self):
-        self.pause_sockets = True
-        if self.queue.qsize() > 0:
-            self.parent.after(10, self.empty_queue)
-
     def on_closing(self):
-        self.empty_queue()
+        if self.trades_placed > 0 and self.trades_completed < self.trades_placed:
+            if messagebox.askokcancel('Quit', 'Not all trades have completed, some trade data might not be recorded. Quit anyway?'):
+                self.save_and_quit()
+        else:
+            self.save_and_quit()
+
+    def save_and_quit(self):
         if len(self.trades) > 0:
             self.update_commands('Saving trade history')
             df = pd.DataFrame(self.trades)
@@ -118,7 +120,7 @@ class BalanceGUI(tk.Frame):
             self.parent.destroy()
         else:
             self.parent.destroy()
-        
+
     
     def api_enter(self):
         api_key = self.key_entry.get()
@@ -148,7 +150,7 @@ class BalanceGUI(tk.Frame):
         if msg['e'] == 'error':
             self.bm.close()
             self.start_websockets()
-        if not self.pause_sockets:
+        else:
             self.queue.put(msg)
         
     def process_queue(self):
@@ -157,22 +159,25 @@ class BalanceGUI(tk.Frame):
         except Queue.Empty:
             pass
         else:
-            msg = self.test_trade_msg()
             if msg['e'] == '24hrTicker':
                 self.update_price(msg)
             elif msg['e'] == 'outboundAccountInfo':
                 self.update_balance(msg)
             elif msg['e'] == 'executionReport':
-                coin = msg['s'][:-len(self.trade_coin)]
-                savemsg = {self.headers[key] : value for key, value in msg.items()}
-                percent = 100.0*float(savemsg['cumulative_filled_quantity'])/float(savemsg['order_quantity'])
-                if percent < 100:
-                    self.portfolio.set(coin, column='Status', value = 'In Progress: {0:.2f}%'.format(percent))
-                else:
-                    self.portfolio.set(coin, column='Status', value = 'Completed')
-                self.trades.append(savemsg)
+                self.update_trades(msg)
         self.master.after(10, self.process_queue)
 
+    def update_trades(msg):
+        coin = msg['s'][:-len(self.trade_coin)]
+        savemsg = {self.headers[key] : value for key, value in msg.items()}
+        percent = 100.0*float(savemsg['cumulative_filled_quantity'])/float(savemsg['order_quantity'])
+        if percent < 100.0:
+            self.portfolio.set(coin, column='Status', value = 'In Progress: {0:.2f}%'.format(percent))
+        else:
+            self.trades_completed += 1
+            self.portfolio.set(coin, column='Status', value = 'Completed')
+        self.trades.append(savemsg)
+        
     def column_headers(self):
         return {'e': 'event_type',
                 'E': 'event_time',
@@ -289,7 +294,6 @@ class BalanceGUI(tk.Frame):
             f.write('\n' + string)
                           
     def dryrun(self):
-        self.empty_queue()
         self.rebalance_button['state'] = 'normal'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         for row in self.coins.itertuples():
@@ -340,7 +344,6 @@ class BalanceGUI(tk.Frame):
                     status = e
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
-            self.pause_sockets = False
         
     def currency_change(self, event):
         print 'Not yet supported'
@@ -390,7 +393,6 @@ class BalanceGUI(tk.Frame):
         
     def rebalance(self):
         self.rebalance_button['state'] = 'disabled'
-        self.empty_queue()
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         for row in self.coins.itertuples():
             coin = row.coin
@@ -439,9 +441,9 @@ class BalanceGUI(tk.Frame):
                 except Exception as e:
                     self.portfolio.set(coin, column='Status', value=e)
                 else:
-                    self.portfolio.set(coin, column='Status', value='Trade Ready')
+                    self.trades_placed += 1
+                    self.portfolio.set(coin, column='Status', value='Trade Placed')
             self.portfolio.set(coin, column='Action', value=action)
-            self.pause_sockets = False
    
     
 def main():
