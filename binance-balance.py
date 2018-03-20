@@ -13,6 +13,12 @@ from twisted.internet import reactor
 import os.path
 
 def round_decimal(num, decimal):
+    """
+    Round a given floating point number 'num' to the nearest integer
+    multiple of another floating point number 'decimal' smaller than
+    'num' and return it as a string with up to 8 decimal places,
+    dropping any trailing zeros.
+    """
     if decimal > 0:
         x = np.round(num/decimal, 0)*decimal
     else:
@@ -22,6 +28,7 @@ def round_decimal(num, decimal):
 
 class BalanceGUI(tk.Frame):
     def __init__(self, parent, coins):
+        """ Initialize all GUI widgets """
         tk.Frame.__init__(self, parent)
         parent.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.parent = parent
@@ -81,17 +88,8 @@ class BalanceGUI(tk.Frame):
         self.buy_button.grid(row=1,column=3, sticky=tk.E+tk.W)
         
 
-        #streaming display
-        self.stream_view = tk.LabelFrame(parent, text='Current State')
-        self.stream_view.grid(row=2, column=0, sticky=tk.E+tk.W)
-        self.commands = tk.StringVar()
-        self.commands.set('{0}: Ready'.format(datetime.today().replace(microsecond=0)))
-        self.stream = tk.Label(self.stream_view, textvariable = self.commands, justify=tk.LEFT)
-        self.stream.grid(row=0, column=0, sticky=tk.E+tk.W)
-
-        
-
     def on_closing(self):
+        """ Check that all trades have executed before starting the save and exit process """
         if self.trades_placed > 0 and self.trades_completed < self.trades_placed:
             if messagebox.askokcancel('Quit', 'Not all trades have completed, some trade data might not be recorded. Quit anyway?'):
                 self.save_and_quit()
@@ -99,8 +97,10 @@ class BalanceGUI(tk.Frame):
             self.save_and_quit()
 
     def save_and_quit(self):
+        """
+        If trades have been executed in the current session, save them to file. Stop all websockets and exit the GUI.
+        """
         if len(self.trades) > 0:
-            self.update_commands('Saving trade history')
             df = pd.DataFrame(self.trades)
             if os.path.isfile('trade_history.csv'):
                 with open('trade_history.csv','a') as f:
@@ -118,6 +118,7 @@ class BalanceGUI(tk.Frame):
 
     
     def api_enter(self):
+        """ Log in to Binance with the provided credentials, update user portfolio and start listening to price and account update websockets. """
         api_key = self.key_entry.get()
         self.key_entry.delete(0,'end')
         api_secret = self.secret_entry.get()
@@ -130,23 +131,76 @@ class BalanceGUI(tk.Frame):
         self.dryrun_button['state'] = 'normal'
         self.orderopt['state'] = 'normal'
 
-        self.update_commands('{0}: Logging in'.format(datetime.today().replace(microsecond=0)))
         self.client = Client(api_key, api_secret)
         status = self.client.get_system_status()
-        self.update_commands('{0}: System status: {1}'.format(datetime.today().replace(microsecond=0), status['msg']))
         
         self.populate_portfolio()
-
         self.start_websockets()
 
+    def start_websockets(self):
+        """ Start websockets to get price updates for all coins in the portfolio, trade execution reports, and user account balance updates. Start the message queue processor. """
+        self.bm = BinanceSocketManager(self.client)
+        self.bm.start()
+        trade_currency = self.trade_currency
+        symbols = self.coins['symbol'].tolist()
+        symbols.remove(trade_currency+trade_currency)
+
+        self.sockets = {}
+        for symbol in symbols:
+            self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
+        self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
+        self.parent.after(10, self.process_queue)
+
+    def populate_portfolio(self):
+        """ Get all symbol info from Binance needed to populate user portfolio data and execute trades """
+        self.coins = self.coins_base
+        self.portfolio.delete(*self.portfolio.get_children())
+        exchange_coins = []
+        trade_currency = self.trade_currency
+        self.trade_coin = trade_currency
+        
+        for coin in self.coins['coin']:
+            pair = coin+trade_currency
+            balance = self.client.get_asset_balance(asset=coin)
+            if coin != trade_currency:
+                price = float(self.client.get_symbol_ticker(symbol = pair)['price'])
+                symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
+                row = {'coin': coin, 'exchange_balance': float(balance['free']),
+                   'minprice': float(symbolinfo[0]['minPrice']), 'maxprice': float(symbolinfo[0]['maxPrice']), 'ticksize': float(symbolinfo[0]['tickSize']),
+                   'minqty': float(symbolinfo[1]['minQty']), 'maxqty': float(symbolinfo[1]['maxQty']), 'stepsize': float(symbolinfo[1]['stepSize']),                   
+                   'minnotional': float(symbolinfo[2]['minNotional']), 'symbol': pair, 'askprice' : price, 'bidprice': price, 'price': price}
+            else:
+                fixed_balance = self.coins.loc[self.coins['coin'] == coin]['fixed_balance']
+                row = {'coin': coin, 'exchange_balance': float(balance['free']),
+                   'minprice': 0, 'maxprice': 0, 'ticksize': 0,
+                   'minqty': 0, 'maxqty': 0, 'stepsize': 0,                   
+                   'minnotional': 0, 'symbol': coin+coin, 'askprice' : 1.0, 'bidprice': 1.0, 'price': 1.0}
+            exchange_coins.append(row)
+        exchange_coins = pd.DataFrame(exchange_coins)
+        self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
+
+        self.coins['value'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
+        self.total = np.sum(self.coins['value'])
+        self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
+        
+        i = 0
+        for row in self.coins.itertuples():
+            self.portfolio.insert("" , i, iid=row.coin, text=row.coin,
+                                  values=(round_decimal(row.fixed_balance, row.stepsize), round_decimal(row.exchange_balance, row.stepsize),
+                                          '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), round_decimal(row.price, row.ticksize),round_decimal(row.price, row.ticksize),'','Waiting'))
+            i += 1
+
     def queue_msg(self, msg):
+        """ Whenever a weboscket receives a message, check for errors. If an error occurs, restart websockets. If no error, add it to the message queue. """
         if msg['e'] == 'error':
             self.bm.close()
+            reactor.stop()
             self.start_websockets()
         else:
             self.queue.put(msg)
         
     def process_queue(self):
+        """ Check for new messages in the queue periodically, and reroute them to the appropriate handler. Recursively calls itself to perpetuate the process. """
         try:
             msg = self.queue.get(0)
         except Queue.Empty:
@@ -161,6 +215,7 @@ class BalanceGUI(tk.Frame):
         self.master.after(10, self.process_queue)
 
     def update_trades(msg):
+        """ Update balances whenever a partial execution occurs """
         coin = msg['s'][:-len(self.trade_coin)]
         savemsg = {self.headers[key] : value for key, value in msg.items()}
         percent = 100.0*float(savemsg['cumulative_filled_quantity'])/float(savemsg['order_quantity'])
@@ -169,80 +224,11 @@ class BalanceGUI(tk.Frame):
         else:
             self.trades_completed += 1
             self.portfolio.set(coin, column='Status', value = 'Completed')
-        self.trades.append(savemsg)
-        
-    def column_headers(self):
-        return {'e': 'event_type',
-                'E': 'event_time',
-                's': 'symbol',
-                'c': 'client_order_id',
-                'S': 'side',
-                'o': 'type',
-                'f': 'time_in_force',
-                'q': 'order_quantity',
-                'p': 'order_price',
-                'F': 'iceberg_quantity',
-                'g': 'ignore_1',
-                'C': 'original_client_order_id',
-                'x': 'current_execution_type',
-                'X': 'current_order_status',
-                'r': 'order_reject_reason',
-                'i': 'order_id',
-                'l': 'last_executed_quantity',
-                'z': 'cumulative_filled_quantity',
-                'L': 'last_executed_price',
-                'n': 'commission_amount',
-                'N': 'commission_asset',
-                'T': 'transction_time',
-                't': 'trade_id',
-                'I': 'ignore_2',
-                'w': 'order_working',
-                'm': 'maker_side',
-                'M': 'ignore_3'}
+        self.trades.append(savemsg)    
 
-    def test_trade_msg(self):
-        return {'e': 'executionReport',
-                'E': '1',
-                's': 'ETHBTC',
-                'c': '2',
-                'S': 'BUY',
-                'o': 'MARKET',
-                'f': 'GTC',
-                'q': '123',
-                'p': '0.124',
-                'F': '0.0',
-                'g': '-1',
-                'C': '543',
-                'x': 'NEW',
-                'X': 'NEW',
-                'r': 'NONE',
-                'i': '656',
-                'l': '13.0',
-                'z': '123.0',
-                'L': '0.123',
-                'n': '.00123',
-                'N': 'BNB',
-                'T': '545',
-                't': '7656',
-                'I': '63455',
-                'w': 'false',
-                'm': 'false',
-                'M': 'false'}
-    
-    def start_websockets(self):
-        self.bm = BinanceSocketManager(self.client)
-        self.bm.start()
-        trade_currency = self.trade_currency
-        symbols = self.coins['symbol'].tolist()
-        symbols.remove(trade_currency+trade_currency)
-
-        self.sockets = {}
-        for symbol in symbols:
-            self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
-        self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
-        self.parent.after(10, self.process_queue)
 
     def update_balance(self, msg):
+        """ Update user balances internally and on the display whenever an account update message is received. """
         balances = msg['B']
         for balance in balances:
             coin = balance['a']
@@ -260,6 +246,7 @@ class BalanceGUI(tk.Frame):
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
 
     def update_price(self, msg):
+        """ Update symbol prices and user allocations internally and on the display whenever a price update is received. """
         coin = msg['s'][:-len(self.trade_currency)]
         ask = float(msg['a'])
         bid = float(msg['b'])
@@ -280,16 +267,11 @@ class BalanceGUI(tk.Frame):
         for row in self.coins.itertuples():
             coin = row.coin
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
-            
         
-    def update_commands(self, string):
-        self.commands.set(self.commands.get() + '\n' + string)
-        with open('binance_balance_log.log','a') as f:
-            f.write('\n' + string)
                           
     def dryrun(self):
+        """ Determine approximate trades which must occur in order to rebalance, and report them to the user. Place test orders to ensure compliance with Binance API """
         self.sell_button['state'] = 'normal'
-        self.buy_button['state'] = 'normal'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         for row in self.coins.itertuples():
             status = ''
@@ -338,55 +320,15 @@ class BalanceGUI(tk.Frame):
                     status = e
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
-        
-    def currency_change(self, event):
-        print 'Not yet supported'
 
 
 
-    def populate_portfolio(self):
-        self.coins = self.coins_base
-        self.portfolio.delete(*self.portfolio.get_children())
-        exchange_coins = []
-        trade_currency = self.trade_currency
-        self.trade_coin = trade_currency
-        
-        for coin in self.coins['coin']:
-            pair = coin+trade_currency
-            balance = self.client.get_asset_balance(asset=coin)
-            if coin != trade_currency:
-                price = float(self.client.get_symbol_ticker(symbol = pair)['price'])
-                symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
-                row = {'coin': coin, 'exchange_balance': float(balance['free']),
-                   'minprice': float(symbolinfo[0]['minPrice']), 'maxprice': float(symbolinfo[0]['maxPrice']), 'ticksize': float(symbolinfo[0]['tickSize']),
-                   'minqty': float(symbolinfo[1]['minQty']), 'maxqty': float(symbolinfo[1]['maxQty']), 'stepsize': float(symbolinfo[1]['stepSize']),                   
-                   'minnotional': float(symbolinfo[2]['minNotional']), 'symbol': pair, 'askprice' : price, 'bidprice': price, 'price': price}
-            else:
-                fixed_balance = self.coins.loc[self.coins['coin'] == coin]['fixed_balance']
-                row = {'coin': coin, 'exchange_balance': float(balance['free']),
-                   'minprice': 0, 'maxprice': 0, 'ticksize': 0,
-                   'minqty': 0, 'maxqty': 0, 'stepsize': 0,                   
-                   'minnotional': 0, 'symbol': coin+coin, 'askprice' : 1.0, 'bidprice': 1.0, 'price': 1.0}
-            exchange_coins.append(row)
-        exchange_coins = pd.DataFrame(exchange_coins)
-        self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
-
-        self.coins['value'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
-        self.total = np.sum(self.coins['value'])
-        self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
-        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
-
-        
-        i = 0
-        for row in self.coins.itertuples():
-            self.portfolio.insert("" , i, iid=row.coin, text=row.coin,
-                                  values=(round_decimal(row.fixed_balance, row.stepsize), round_decimal(row.exchange_balance, row.stepsize),
-                                          '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), round_decimal(row.price, row.ticksize),round_decimal(row.price, row.ticksize),'','Waiting'))
-            i += 1
 
         
     def execute_sells(self):
+        """ Execute any sell orders required to rebalance the portfolio, and enable buy orders """
         self.sell_button['state'] = 'disabled'
+        self.buy_button['state'] = 'normal'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         sellscoins = self.coins[self.coins['difference'] < 0]
         for row in sellcoins.itertuples():
@@ -433,10 +375,10 @@ class BalanceGUI(tk.Frame):
                 else:
                     self.trades_placed += 1
                     self.portfolio.set(coin, column='Status', value='Trade Placed')
-                    self.update_commands('Trade placed: {0} {1} {2}'.format(side, round_decimal(qty, row.stepsize), pair))
             self.portfolio.set(coin, column='Action', value=action)
 
     def execute_buys(self):
+        """ Execute any sell orders required to rebalance the portfolio """
         self.buy_button['state'] = 'disabled'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         sellscoins = self.coins[self.coins['difference'] > 0]
@@ -482,9 +424,37 @@ class BalanceGUI(tk.Frame):
                 else:
                     self.trades_placed += 1
                     self.portfolio.set(coin, column='Status', value='Trade Placed')
-                    self.update_commands('Trade placed: {0} {1} {2}'.format(side, round_decimal(qty, row.stepsize), pair))
             self.portfolio.set(coin, column='Action', value=action)
    
+    def column_headers(self):
+        """ define human readable aliases for the headers in trade execution reports. """
+        return {'e': 'event_type',
+                'E': 'event_time',
+                's': 'symbol',
+                'c': 'client_order_id',
+                'S': 'side',
+                'o': 'type',
+                'f': 'time_in_force',
+                'q': 'order_quantity',
+                'p': 'order_price',
+                'F': 'iceberg_quantity',
+                'g': 'ignore_1',
+                'C': 'original_client_order_id',
+                'x': 'current_execution_type',
+                'X': 'current_order_status',
+                'r': 'order_reject_reason',
+                'i': 'order_id',
+                'l': 'last_executed_quantity',
+                'z': 'cumulative_filled_quantity',
+                'L': 'last_executed_price',
+                'n': 'commission_amount',
+                'N': 'commission_asset',
+                'T': 'transction_time',
+                't': 'trade_id',
+                'I': 'ignore_2',
+                'w': 'order_working',
+                'm': 'maker_side',
+                'M': 'ignore_3'}
     
 def main():
     root = tk.Tk()
