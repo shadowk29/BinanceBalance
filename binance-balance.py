@@ -41,6 +41,8 @@ class BalanceGUI(tk.Frame):
         self.trade_currency = 'BTC'
         self.trades = []
         self.headers = self.column_headers()
+        coincount = len(coins)
+        self.timer = 1000/(5*coincount)
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -212,7 +214,8 @@ class BalanceGUI(tk.Frame):
                 self.update_balance(msg)
             elif msg['e'] == 'executionReport':
                 self.update_trades(msg)
-        self.master.after(10, self.process_queue)
+        print self.queue.qsize()
+        self.master.after(self.timer, self.process_queue)
 
     def update_trades(msg):
         """ Update balances whenever a partial execution occurs """
