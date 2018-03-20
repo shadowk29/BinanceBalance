@@ -34,7 +34,7 @@ class BalanceGUI(tk.Frame):
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
-        self.portfolio_view.grid(row=0,column=0, sticky=tk.E+tk.W)
+        self.portfolio_view.grid(row=0,column=0, sticky=tk.E+tk.W+tk.N+tk.S)
         self.portfolio = ttk.Treeview(self.portfolio_view)
         self.portfolio['columns']=('Stored','Exchange', 'Target','Actual', 'Bid', 'Ask', 'Action', 'Status')
         for label in self.portfolio['columns']:
@@ -449,7 +449,7 @@ class BalanceGUI(tk.Frame):
 def main():
     root = tk.Tk()
     root.withdraw()
-    portfolio = tkFileDialog.askopenfilename(initialdir='C:/Users/kbrig035/Documents/GitHub/BinanceBalance/')
+    portfolio = 'allocation.csv' #tkFileDialog.askopenfilename(initialdir='C:/Users/kbrig035/Documents/GitHub/BinanceBalance/')
     coins = pd.read_csv(portfolio)
     BalanceGUI(root, coins).grid(row=0, column=0)
     root.wm_title('BinanceBalance')
