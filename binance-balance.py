@@ -321,9 +321,6 @@ class BalanceGUI(tk.Frame):
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
 
-
-
-
         
     def execute_sells(self):
         """ Execute any sell orders required to rebalance the portfolio, and enable buy orders """
