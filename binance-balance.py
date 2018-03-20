@@ -31,6 +31,7 @@ class BalanceGUI(tk.Frame):
         self.queue = Queue.Queue()
         self.trades_placed = 0
         self.trades_completed = 0
+        self.trade_currency = 'BTC'
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -63,12 +64,6 @@ class BalanceGUI(tk.Frame):
         self.login.grid(row=0, column=4, sticky=tk.E+tk.W)
 
         
-        self.refresh_button = tk.Button(self.controls_view, text='Refresh', command=self.populate_portfolio, state='disabled')
-        self.refresh_button.grid(row=1,column=2, sticky=tk.E+tk.W)
-        self.dryrun_button = tk.Button(self.controls_view, text='Dry Run', command=self.dryrun, state='disabled')
-        self.dryrun_button.grid(row=1,column=3, sticky=tk.E+tk.W)
-        self.rebalance_button = tk.Button(self.controls_view, text='Rebalance', command=self.rebalance, state='disabled')
-        self.rebalance_button.grid(row=1,column=4, sticky=tk.E+tk.W)
 
         self.ordertype = tk.StringVar()
         self.ordertype.set('Market')
@@ -76,11 +71,12 @@ class BalanceGUI(tk.Frame):
         self.orderopt.grid(row=1, column=0, stick=tk.E+tk.W)
         self.orderopt['state'] = 'disabled'
 
-        self.trade_currency = tk.StringVar()
-        self.trade_currency.set('BTC')
-        self.trade_currency_opt = tk.OptionMenu(self.controls_view, self.trade_currency, 'BTC', command=self.currency_change)
-        self.trade_currency_opt.grid(row=1, column=1, stick=tk.E+tk.W)
-        self.trade_currency_opt['state'] = 'disabled'       
+        self.dryrun_button = tk.Button(self.controls_view, text='Dry Run', command=self.dryrun, state='disabled')
+        self.dryrun_button.grid(row=1,column=1, sticky=tk.E+tk.W)
+        self.sell_button = tk.Button(self.controls_view, text='Execute Sells', command=self.execute_sells, state='disabled')
+        self.sell_button.grid(row=1,column=2, sticky=tk.E+tk.W)
+        self.buy_button = tk.Button(self.controls_view, text='Execute Buys', command=self.execute_buys, state='disabled')
+        self.buy_button.grid(row=1,column=3, sticky=tk.E+tk.W)
         
 
         #streaming display
@@ -132,10 +128,8 @@ class BalanceGUI(tk.Frame):
         self.key_entry['state'] = 'disabled'
         self.secret_entry['state'] = 'disabled'
         self.login['state'] = 'disabled'
-        self.refresh_button['state'] = 'normal'
         self.dryrun_button['state'] = 'normal'
         self.orderopt['state'] = 'normal'
-        self.trade_currency_opt['state'] = 'normal'
 
         self.update_commands('{0}: Logging in'.format(datetime.today().replace(microsecond=0)))
         self.client = Client(api_key, api_secret)
@@ -239,7 +233,7 @@ class BalanceGUI(tk.Frame):
     def start_websockets(self):
         self.bm = BinanceSocketManager(self.client)
         self.bm.start()
-        trade_currency = self.trade_currency.get()
+        trade_currency = self.trade_currency
         symbols = self.coins['symbol'].tolist()
         symbols.remove(trade_currency+trade_currency)
 
@@ -266,7 +260,7 @@ class BalanceGUI(tk.Frame):
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
 
     def update_price(self, msg):
-        coin = msg['s'][:-len(self.trade_currency.get())]
+        coin = msg['s'][:-len(self.trade_currency)]
         ask = float(msg['a'])
         bid = float(msg['b'])
         
@@ -294,7 +288,8 @@ class BalanceGUI(tk.Frame):
             f.write('\n' + string)
                           
     def dryrun(self):
-        self.rebalance_button['state'] = 'normal'
+        self.sell_button['state'] = 'normal'
+        self.buy_button['state'] = 'normal'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         for row in self.coins.itertuples():
             status = ''
@@ -302,7 +297,6 @@ class BalanceGUI(tk.Frame):
             pair = coin+self.trade_coin
             balance = row.exchange_balance
             actual = row.actual
-            self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(actual))
             dif = row.difference
             qty = np.absolute(dif)
             if dif < 0:
@@ -354,7 +348,7 @@ class BalanceGUI(tk.Frame):
         self.coins = self.coins_base
         self.portfolio.delete(*self.portfolio.get_children())
         exchange_coins = []
-        trade_currency = self.trade_currency.get()
+        trade_currency = self.trade_currency
         self.trade_coin = trade_currency
         
         for coin in self.coins['coin']:
@@ -389,28 +383,72 @@ class BalanceGUI(tk.Frame):
                                   values=(round_decimal(row.fixed_balance, row.stepsize), round_decimal(row.exchange_balance, row.stepsize),
                                           '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), round_decimal(row.price, row.ticksize),round_decimal(row.price, row.ticksize),'','Waiting'))
             i += 1
+
         
-        
-    def rebalance(self):
-        self.rebalance_button['state'] = 'disabled'
+    def execute_sells(self):
+        self.sell_button['state'] = 'disabled'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
+        sellscoins = self.coins[self.coins['difference'] < 0]
+        for row in sellcoins.itertuples():
+            coin = row.coin
+            balance = row.exchange_balance
+            
+            pair = coin+self.trade_coin
+            actual = row.actual
+            dif = row.difference
+            qty = np.absolute(dif)
+            side = SIDE_SELL
+            price = row.bidprice
+            if qty > balance:
+                qty = balance
+            action = 'None'
+            if coin == self.trade_coin:
+                action = 'Ready'
+            elif qty < row.minqty:
+                action = 'Trade quantity too small'
+            elif qty > row.maxqty:
+                action = 'Trade quantity too large'
+            elif qty * price < row.minnotional:
+                action = 'Trade value too small'
+            else:
+                action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
+                
+                trade_type = self.ordertype.get()
+                trade_currency = self.trade_coin
+                try:
+                    if trade_type == 'Market-Limit':
+                        order = self.client.create_order(symbol = pair,
+                                                             side = side,
+                                                             type = ORDER_TYPE_LIMIT,
+                                                             timeInForce = TIME_IN_FORCE_GTC,
+                                                             quantity = round_decimal(qty, row.stepsize),
+                                                             price = round_decimal(price, row.ticksize))
+                    elif trade_type == 'Market':
+                        order = self.client.create_order(symbol = pair,
+                                                             side = side,
+                                                             type = ORDER_TYPE_MARKET,
+                                                             quantity = round_decimal(qty, row.stepsize))                    
+                except Exception as e:
+                    self.portfolio.set(coin, column='Status', value=e)
+                else:
+                    self.trades_placed += 1
+                    self.portfolio.set(coin, column='Status', value='Trade Placed')
+            self.portfolio.set(coin, column='Action', value=action)
+
+    def execute_buys(self):
+        self.buy_button['state'] = 'disabled'
+        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
+        sellscoins = self.coins[self.coins['difference'] > 0]
         for row in self.coins.itertuples():
             coin = row.coin
             balance = row.exchange_balance
             
             pair = coin+self.trade_coin
             actual = row.actual
-            self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(actual))
             dif = row.difference
             qty = np.absolute(dif)
-            if dif < 0:
-                side = SIDE_SELL
-                price = row.bidprice
-            else:
-                side = SIDE_BUY
-                price = row.askprice
-            if side == SIDE_SELL and qty > balance:
-                qty = balance
+            side = SIDE_BUY
+            price = row.askprice
             action = 'None'
             if coin == self.trade_coin:
                 action = 'Ready'
