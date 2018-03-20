@@ -32,6 +32,8 @@ class BalanceGUI(tk.Frame):
         self.trades_placed = 0
         self.trades_completed = 0
         self.trade_currency = 'BTC'
+        self.trades = []
+        self.headers = self.column_headers()
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -87,10 +89,7 @@ class BalanceGUI(tk.Frame):
         self.stream = tk.Label(self.stream_view, textvariable = self.commands, justify=tk.LEFT)
         self.stream.grid(row=0, column=0, sticky=tk.E+tk.W)
 
-
-        self.trades = []
-        self.headers = self.column_headers()
-        self.parent.after(10, self.process_queue)
+        
 
     def on_closing(self):
         if self.trades_placed > 0 and self.trades_completed < self.trades_placed:
@@ -241,6 +240,7 @@ class BalanceGUI(tk.Frame):
         for symbol in symbols:
             self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
         self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
+        self.parent.after(10, self.process_queue)
 
     def update_balance(self, msg):
         balances = msg['B']
