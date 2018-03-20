@@ -327,7 +327,7 @@ class BalanceGUI(tk.Frame):
         self.sell_button['state'] = 'disabled'
         self.buy_button['state'] = 'normal'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
-        sellscoins = self.coins[self.coins['difference'] < 0]
+        sellcoins = self.coins[self.coins['difference'] < 0]
         for row in sellcoins.itertuples():
             coin = row.coin
             balance = row.exchange_balance
@@ -378,8 +378,8 @@ class BalanceGUI(tk.Frame):
         """ Execute any sell orders required to rebalance the portfolio """
         self.buy_button['state'] = 'disabled'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
-        sellscoins = self.coins[self.coins['difference'] > 0]
-        for row in self.coins.itertuples():
+        buycoins = self.coins[self.coins['difference'] > 0]
+        for row in buycoins.itertuples():
             coin = row.coin
             balance = row.exchange_balance
             
@@ -422,6 +422,7 @@ class BalanceGUI(tk.Frame):
                     self.trades_placed += 1
                     self.portfolio.set(coin, column='Status', value='Trade Placed')
             self.portfolio.set(coin, column='Action', value=action)
+            
    
     def column_headers(self):
         """ define human readable aliases for the headers in trade execution reports. """
