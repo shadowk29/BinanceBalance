@@ -214,7 +214,6 @@ class BalanceGUI(tk.Frame):
                 self.update_balance(msg)
             elif msg['e'] == 'executionReport':
                 self.update_trades(msg)
-        print self.queue.qsize()
         self.master.after(self.timer, self.process_queue)
 
     def update_trades(msg):
