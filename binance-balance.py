@@ -77,7 +77,7 @@ class BalanceGUI(tk.Frame):
         
 
         self.ordertype = tk.StringVar()
-        self.ordertype.set('Market')
+        self.ordertype.set('Market-Limit')
         self.orderopt = tk.OptionMenu(self.controls_view, self.ordertype, 'Market', 'Market-Limit')
         self.orderopt.grid(row=1, column=0, stick=tk.E+tk.W)
         self.orderopt['state'] = 'disabled'
