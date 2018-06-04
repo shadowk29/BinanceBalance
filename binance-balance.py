@@ -88,7 +88,11 @@ class BalanceGUI(tk.Frame):
         self.sell_button.grid(row=1,column=2, sticky=tk.E+tk.W)
         self.buy_button = tk.Button(self.controls_view, text='Execute Buys', command=self.execute_buys, state='disabled')
         self.buy_button.grid(row=1,column=3, sticky=tk.E+tk.W)
-        
+
+        self.statestring = tk.StringVar()
+        self.statestring.set('Ready')
+        self.state = tk.Label(self.controls_view, textvariable=self.statestring)
+        self.state.grid(row=1,column=4, sticky=tk.E+tk.W)
 
     def on_closing(self):
         """ Check that all trades have executed before starting the save and exit process """
@@ -184,6 +188,7 @@ class BalanceGUI(tk.Frame):
         self.coins['value'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
         self.total = np.sum(self.coins['value'])
         self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
+        self.statestring.set(round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
         
         i = 0
         for row in self.coins.itertuples():
@@ -246,6 +251,7 @@ class BalanceGUI(tk.Frame):
         for row in self.coins.itertuples():
             coin = row.coin
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
+        self.statestring.set(round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
 
     def update_price(self, msg):
         """ Update symbol prices and user allocations internally and on the display whenever a price update is received. """
@@ -269,6 +275,7 @@ class BalanceGUI(tk.Frame):
         for row in self.coins.itertuples():
             coin = row.coin
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
+        self.statestring.set(round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
         
                           
     def dryrun(self):
