@@ -197,7 +197,7 @@ class BalanceGUI(tk.Frame):
         i = 0
         for row in self.coins.itertuples():
             self.portfolio.insert("" , i, iid=row.coin, text=row.coin,
-                                  values=(round_decimal(row.fixed_balance, row.stepsize), round_decimal(row.exchange_balance, row.stepsize),
+                                  values=(row.fixed_balance, row.exchange_balance,
                                           '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), round_decimal(row.price, row.ticksize),round_decimal(row.price, row.ticksize),'','Waiting'))
             i += 1
 
@@ -472,7 +472,7 @@ def main():
     root.withdraw()
     portfolio = 'allocation.csv'
     coins = pd.read_csv(portfolio)
-    if not np.sum(coins['allocation'] == 100):
+    if not np.sum(coins['allocation']) == 100:
         messagebox.showinfo('Bad Configuration','Your coin allocations to not sum to 100%')
     else:
         BalanceGUI(root, coins).grid(row=0, column=0)
