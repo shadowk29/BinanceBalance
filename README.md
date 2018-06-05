@@ -25,4 +25,7 @@ Coins which are not listed in this file will be ignored even if you hold them on
 
 When run, you will be asked to enter your API key/secret. These are not stored anywhere and are used exactly once per session to connect to Binance. Before you can rebalance you must execute a dry run, which will simply list all of the trades needed to bring your coins into balance. 
 
+For the time being this is a manual operation only, and you must execute sells before you execute buys to ensure sufficient BTC exists to complete the buy steps. Performing a dry run will enable the sell button, and using the sell button will enable the buy button, though currently the user is responsible for allowing the sells to complete execution before attempting the buys, unless sufficient BTC alrady exists on the exchange to allow the necessary trades to happen.
+
+
 
