@@ -192,7 +192,7 @@ class BalanceGUI(tk.Frame):
         self.coins['value'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
         self.total = np.sum(self.coins['value'])
         self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
-        self.statestring.set('BTC Value: ' + round_decimal(self.total,0.000001) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
+        self.statestring.set('BTC Value: ' + round_decimal(self.total,-1) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
         
         i = 0
         for row in self.coins.itertuples():
@@ -255,7 +255,7 @@ class BalanceGUI(tk.Frame):
         for row in self.coins.itertuples():
             coin = row.coin
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
-        self.statestring.set('BTC Value: ' + round_decimal(self.total,0.000001) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
+        self.statestring.set('BTC Value: ' + round_decimal(self.total,-1) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
         
     def update_price(self, msg):
         """ Update symbol prices and user allocations internally and on the display whenever a price update is received. """
@@ -279,7 +279,7 @@ class BalanceGUI(tk.Frame):
         for row in self.coins.itertuples():
             coin = row.coin
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
-        self.statestring.set('BTC Value: ' + round_decimal(self.total,0.000001) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
+        self.statestring.set('BTC Value: ' + round_decimal(self.total,-1) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
         
                           
     def dryrun(self):
