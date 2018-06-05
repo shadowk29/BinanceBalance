@@ -460,7 +460,7 @@ class BalanceGUI(tk.Frame):
                 'L': 'last_executed_price',
                 'n': 'commission_amount',
                 'N': 'commission_asset',
-                'T': 'transction_time',
+                'T': 'transaction_time',
                 't': 'trade_id',
                 'I': 'ignore_2',
                 'w': 'order_working',
