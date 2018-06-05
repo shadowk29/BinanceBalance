@@ -43,6 +43,8 @@ class BalanceGUI(tk.Frame):
         self.headers = self.column_headers()
         coincount = len(coins)
         self.timer = 1000/(5*coincount)
+        
+            
 
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -93,6 +95,8 @@ class BalanceGUI(tk.Frame):
         self.statestring.set('Ready')
         self.state = tk.Label(self.controls_view, textvariable=self.statestring)
         self.state.grid(row=0,column=5, sticky=tk.E+tk.W)
+
+        
 
     def on_closing(self):
         """ Check that all trades have executed before starting the save and exit process """
@@ -466,11 +470,14 @@ class BalanceGUI(tk.Frame):
 def main():
     root = tk.Tk()
     root.withdraw()
-    portfolio = 'allocation.csv' #tkFileDialog.askopenfilename(initialdir='C:/Users/kbrig035/Documents/GitHub/BinanceBalance/')
+    portfolio = 'allocation.csv'
     coins = pd.read_csv(portfolio)
-    BalanceGUI(root, coins).grid(row=0, column=0)
-    root.wm_title('BinanceBalance')
-    root.mainloop()
+    if not np.sum(coins['allocation'] == 100):
+        messagebox.showinfo('Bad Configuration','Your coin allocations to not sum to 100%')
+    else:
+        BalanceGUI(root, coins).grid(row=0, column=0)
+        root.wm_title('BinanceBalance')
+        root.mainloop()
 
 if __name__=="__main__":
     main()
