@@ -21,3 +21,8 @@ OMG,10,5
 XMR,3,5
 XRP,50,5
 
+Coins which are not listed in this file will be ignored even if you hold them on Binance. 
+
+When run, you will be asked to enter your API key/secret. These are not stored anywhere and are used exactly once per session to connect to Binance. Before you can rebalance you must execute a dry run, which will simply list all of the trades needed to bring your coins into balance. 
+
+
