@@ -7,18 +7,31 @@ This app runs entirely locally, meaning that your API keys do not need to be sto
 To run, there must be a configuration file present in the same directory as the code/executable called allocations.csv. This file lists all of the coins you wish the bot to handle, the amount you have in cold storage off the exchange, and the desired allocation percentage. An example is below:
 
 coin,fixed_balance,allocation
+
 BTC,0.5,13
+
 ETH,2,13
+
 XLM,1000,10
+
 LTC,3,10
+
 ZRX,200,10
+
 THETA,1000,7
+
 NANO,20,7
+
 IOTA,50,5
+
 BNB,2,5
+
 NEO,1,5
+
 OMG,10,5
+
 XMR,3,5
+
 XRP,50,5
 
 Coins which are not listed in this file will be ignored even if you hold them on Binance. 
