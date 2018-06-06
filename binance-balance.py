@@ -66,12 +66,16 @@ class BalanceGUI(tk.Frame):
         #options display
         self.controls_view = tk.LabelFrame(parent, text='Controls')
         self.controls_view.grid(row=1, column=0, sticky=tk.E + tk.W)
+        
         key_label = tk.Label(self.controls_view, text='API Key')
         key_label.grid(row=0, column=0,sticky=tk.E + tk.W)
+        
         secret_label = tk.Label(self.controls_view, text='API Secret')
         secret_label.grid(row=0, column=2,sticky=tk.E + tk.W)
+        
         self.key_entry = tk.Entry(self.controls_view, show='*')
         self.key_entry.grid(row=0, column=1,sticky=tk.E + tk.W)
+        
         self.secret_entry = tk.Entry(self.controls_view, show='*')
         self.secret_entry.grid(row=0, column=3,sticky=tk.E + tk.W)
         
@@ -424,7 +428,9 @@ class BalanceGUI(tk.Frame):
         self.execute_transactions(side=SIDE_SELL, dryrun=True)
         self.execute_transactions(side=SIDE_BUY, dryrun=True)
 
-    def place_order(self, coin, pair, trade_type, quantity, price, side, dryrun, stepsize, ticksize):
+    def place_order(self, coin, pair, trade_type,
+                    quantity, price, side, dryrun,
+                    stepsize, ticksize):
         '''
         Format and place an order using the Binance API
         '''
