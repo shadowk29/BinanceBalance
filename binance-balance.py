@@ -194,7 +194,7 @@ class BalanceGUI(tk.Frame):
 
     def get_msg(self):
         try:
-            msg = self.queue.get(0)
+            msg = self.queue.get(block=False)
         except Queue.Empty:
             pass
         else:
