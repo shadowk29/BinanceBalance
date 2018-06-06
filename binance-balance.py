@@ -347,7 +347,7 @@ class BalanceGUI(tk.Frame):
                  self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0]) * ask
         self.coins.loc[self.coins['coin'] == coin, 'value'] = value
         self.total = np.sum(self.coins['value'])
-        self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
+        self.coins['actual'] = self.coins.apply(lambda row: 100.0 * row.value / self.total, axis=1)
         for row in self.coins.itertuples():
             coin = row.coin
             actual = '{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0])
