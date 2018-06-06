@@ -209,9 +209,8 @@ class BalanceGUI(tk.Frame):
             self.start_websockets()
         else:
             self.queue.put(msg)
-        
-    def process_queue(self):
-        """ Check for new messages in the queue periodically, and reroute them to the appropriate handler. Recursively calls itself to perpetuate the process. """
+
+    def get_msg(self):
         try:
             msg = self.queue.get(0)
         except Queue.Empty:
@@ -223,7 +222,15 @@ class BalanceGUI(tk.Frame):
                 self.update_balance(msg)
             elif msg['e'] == 'executionReport':
                 self.update_trades(msg)
-        self.master.after(self.timer, self.process_queue)
+                
+    def process_queue(self, flush=False):
+        """ Check for new messages in the queue periodically, and reroute them to the appropriate handler. Recursively calls itself to perpetuate the process. """
+        if flush:
+            while not self.queue.empty():
+                self.get_msg()
+        else:
+            self.get_msg()
+            self.master.after(self.timer, self.process_queue)
 
     def update_trades(msg):
         """ Update balances whenever a partial execution occurs """
