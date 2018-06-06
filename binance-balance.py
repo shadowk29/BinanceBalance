@@ -276,12 +276,17 @@ class BalanceGUI(tk.Frame):
             actual = row.actual
             dif = row.difference
             qty = np.absolute(dif)
+
+            print coin
+            print qty
+            print balance
             if dif < 0:
                 side = SIDE_SELL
                 price = row.bidprice
             else:
                 side = SIDE_BUY
                 price = row.askprice
+            print side
             if side == SIDE_SELL and qty > balance and coin != self.trade_coin:
                 status = 'Insufficient funds for complete rebalance'
             action = 'None'
@@ -319,6 +324,7 @@ class BalanceGUI(tk.Frame):
                         BinanceOrderUnknownSymbolException,
                         BinanceOrderInactiveSymbolException) as e:
                     self.portfolio.set(coin, column='Status', value=e.message)
+            self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
  
     def execute_sells(self):
