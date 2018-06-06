@@ -43,11 +43,11 @@ class BalanceGUI(tk.Frame):
         self.trades = []
         self.headers = self.column_headers()
         coincount = len(coins)
-        self.timer = 1000/(5*coincount)
+        self.timer = 1000 / (5 * coincount)
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
-        self.portfolio_view.grid(row=0,column=0, sticky=tk.E + tk.W+tk.N+tk.S)
+        self.portfolio_view.grid(row=0, column=0, sticky=tk.E + tk.W + tk.N + tk.S)
         self.portfolio = ttk.Treeview(self.portfolio_view)
         self.portfolio['columns']=('Stored','Exchange', 'Target','Actual', 'Bid', 'Ask', 'Action', 'Status')
         for label in self.portfolio['columns']:
@@ -79,15 +79,15 @@ class BalanceGUI(tk.Frame):
         self.orderopt.grid(row=1, column=0, stick=tk.E + tk.W)
         self.orderopt['state'] = 'disabled'
         self.dryrun_button = tk.Button(self.controls_view, text='Dry Run', command=self.dryrun, state='disabled')
-        self.dryrun_button.grid(row=1,column=1, sticky=tk.E + tk.W)
+        self.dryrun_button.grid(row=1, column=1, sticky=tk.E + tk.W)
         self.sell_button = tk.Button(self.controls_view, text='Execute Sells', command=self.execute_sells, state='disabled')
-        self.sell_button.grid(row=1,column=2, sticky=tk.E + tk.W)
+        self.sell_button.grid(row=1, column=2, sticky=tk.E + tk.W)
         self.buy_button = tk.Button(self.controls_view, text='Execute Buys', command=self.execute_buys, state='disabled')
-        self.buy_button.grid(row=1,column=3, sticky=tk.E + tk.W)
+        self.buy_button.grid(row=1, column=3, sticky=tk.E + tk.W)
         self.statestring = tk.StringVar()
         self.statestring.set('Ready')
         self.state = tk.Label(self.controls_view, textvariable=self.statestring)
-        self.state.grid(row=0,column=5, sticky=tk.E + tk.W)
+        self.state.grid(row=0, column=5, sticky=tk.E + tk.W)
 
     def on_closing(self):
         ''' Check that all trades have executed before starting the save and exit process '''
@@ -144,7 +144,7 @@ class BalanceGUI(tk.Frame):
         for symbol in symbols:
             self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
         self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
-        self.parent.after(10, self.process_queue)
+        self.parent.after(self.timer, self.process_queue)
 
     def populate_portfolio(self):
         ''' Get all symbol info from Binance needed to populate user portfolio data and execute trades '''
@@ -310,9 +310,15 @@ class BalanceGUI(tk.Frame):
                                                              side=side,
                                                              type=ORDER_TYPE_MARKET,
                                                              quantity=round_decimal(qty, row.stepsize))                    
-                except Exception as e:
-                    status = e
-            self.portfolio.set(coin, column='Status', value=status)
+                except (BinanceRequestException,
+                        BinanceAPIException,
+                        BinanceOrderException,
+                        BinanceOrderMinAmountException,
+                        BinanceOrderMinPriceException,
+                        BinanceOrderMinTotalException,
+                        BinanceOrderUnknownSymbolException,
+                        BinanceOrderInactiveSymbolException) as e:
+                    self.portfolio.set(coin, column='Status', value=e.message)
             self.portfolio.set(coin, column='Action', value=action)
  
     def execute_sells(self):
@@ -359,8 +365,15 @@ class BalanceGUI(tk.Frame):
                                                              side=side,
                                                              type=ORDER_TYPE_MARKET,
                                                              quantity=round_decimal(qty, row.stepsize))                    
-                except Exception as e:
-                    self.portfolio.set(coin, column='Status', value=e)
+                except (BinanceRequestException,
+                        BinanceAPIException,
+                        BinanceOrderException,
+                        BinanceOrderMinAmountException,
+                        BinanceOrderMinPriceException,
+                        BinanceOrderMinTotalException,
+                        BinanceOrderUnknownSymbolException,
+                        BinanceOrderInactiveSymbolException) as e:
+                    self.portfolio.set(coin, column='Status', value=e.message)
                 else:
                     self.trades_placed += 1
                     self.portfolio.set(coin, column='Status', value='Trade Placed')
@@ -407,8 +420,15 @@ class BalanceGUI(tk.Frame):
                                                              side=side,
                                                              type=ORDER_TYPE_MARKET,
                                                              quantity=round_decimal(qty, row.stepsize))                    
-                except Exception as e:
-                    self.portfolio.set(coin, column='Status', value=e)
+                except (BinanceRequestException,
+                        BinanceAPIException,
+                        BinanceOrderException,
+                        BinanceOrderMinAmountException,
+                        BinanceOrderMinPriceException,
+                        BinanceOrderMinTotalException,
+                        BinanceOrderUnknownSymbolException,
+                        BinanceOrderInactiveSymbolException) as e:
+                    self.portfolio.set(coin, column='Status', value=e.message)
                 else:
                     self.trades_placed += 1
                     self.portfolio.set(coin, column='Status', value='Trade Placed')
