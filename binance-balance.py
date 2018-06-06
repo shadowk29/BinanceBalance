@@ -101,7 +101,7 @@ class BalanceGUI(tk.Frame):
         '''
         If trades have been executed in the current session, save them to file. Stop all websockets and exit the GUI.
         '''
-        if len(self.trades) > 0:
+        if self.trades:
             df = pd.DataFrame(self.trades)
             if os.path.isfile('trade_history.csv'):
                 with open('trade_history.csv','a') as f:
