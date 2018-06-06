@@ -276,17 +276,12 @@ class BalanceGUI(tk.Frame):
             actual = row.actual
             dif = row.difference
             qty = np.absolute(dif)
-
-            print coin
-            print qty
-            print balance
             if dif < 0:
                 side = SIDE_SELL
                 price = row.bidprice
             else:
                 side = SIDE_BUY
                 price = row.askprice
-            print side
             if side == SIDE_SELL and qty > balance and coin != self.trade_coin:
                 status = 'Insufficient funds for complete rebalance'
             action = 'None'
