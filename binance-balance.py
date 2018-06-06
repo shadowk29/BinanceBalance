@@ -294,6 +294,7 @@ class BalanceGUI(tk.Frame):
         self.sell_button['state'] = 'normal'
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         for row in self.coins.itertuples():
+            self.process_queue(flush=True)
             status = ''
             coin = row.coin
             pair = coin+self.trade_coin
@@ -349,6 +350,7 @@ class BalanceGUI(tk.Frame):
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         sellcoins = self.coins[self.coins['difference'] < 0]
         for row in sellcoins.itertuples():
+            self.process_queue(flush=True)
             coin = row.coin
             balance = row.exchange_balance
             
@@ -400,6 +402,7 @@ class BalanceGUI(tk.Frame):
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
         buycoins = self.coins[self.coins['difference'] > 0]
         for row in buycoins.itertuples():
+            self.process_queue(flush=True)
             coin = row.coin
             balance = row.exchange_balance
             
