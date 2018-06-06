@@ -49,7 +49,10 @@ class BalanceGUI(tk.Frame):
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
         self.portfolio_view.grid(row=0, column=0, sticky=tk.E + tk.W + tk.N + tk.S)
         self.portfolio = ttk.Treeview(self.portfolio_view)
-        self.portfolio['columns']=('Stored','Exchange', 'Target','Actual', 'Bid', 'Ask', 'Action', 'Status')
+        self.portfolio['columns']=('Stored','Exchange',
+                                   'Target','Actual',
+                                   'Bid', 'Ask',
+                                   'Action', 'Status')
         for label in self.portfolio['columns']:
             if label == 'Status':
                 self.portfolio.column(label, width=250)
@@ -71,35 +74,58 @@ class BalanceGUI(tk.Frame):
         self.key_entry.grid(row=0, column=1,sticky=tk.E + tk.W)
         self.secret_entry = tk.Entry(self.controls_view, show='*')
         self.secret_entry.grid(row=0, column=3,sticky=tk.E + tk.W)
-        self.login = tk.Button(self.controls_view, text='Login', command = self.api_enter)
+        
+        self.login = tk.Button(self.controls_view,
+                               text='Login',
+                               command = self.api_enter)
         self.login.grid(row=0, column=4, sticky=tk.E + tk.W)
+        
         self.ordertype = tk.StringVar()
         self.ordertype.set('Market-Limit')
-        self.orderopt = tk.OptionMenu(self.controls_view, self.ordertype, 'Market', 'Market-Limit')
+        self.orderopt = tk.OptionMenu(self.controls_view,
+                                      self.ordertype,
+                                      'Market', 'Market-Limit')
         self.orderopt.grid(row=1, column=0, stick=tk.E + tk.W)
         self.orderopt['state'] = 'disabled'
-        self.dryrun_button = tk.Button(self.controls_view, text='Dry Run', command=self.dryrun, state='disabled')
+        
+        self.dryrun_button = tk.Button(self.controls_view,
+                                       text='Dry Run',
+                                       command=self.dryrun,
+                                       state='disabled')
         self.dryrun_button.grid(row=1, column=1, sticky=tk.E + tk.W)
-        self.sell_button = tk.Button(self.controls_view, text='Execute Sells', command=self.execute_sells, state='disabled')
+        
+        self.sell_button = tk.Button(self.controls_view,
+                                     text='Execute Sells',
+                                     command=self.execute_sells,
+                                     state='disabled')
         self.sell_button.grid(row=1, column=2, sticky=tk.E + tk.W)
-        self.buy_button = tk.Button(self.controls_view, text='Execute Buys', command=self.execute_buys, state='disabled')
+        
+        self.buy_button = tk.Button(self.controls_view,
+                                    text='Execute Buys',
+                                    command=self.execute_buys,
+                                    state='disabled')
         self.buy_button.grid(row=1, column=3, sticky=tk.E + tk.W)
+        
         self.statestring = tk.StringVar()
         self.statestring.set('Ready')
-        self.state = tk.Label(self.controls_view, textvariable=self.statestring)
+        self.state = tk.Label(self.controls_view,
+                              textvariable=self.statestring)
         self.state.grid(row=0, column=5, sticky=tk.E + tk.W)
 
     def on_closing(self):
-        ''' Check that all trades have executed before starting the save and exit process '''
+        ''' Check that all trades have executed
+        before starting the save and exit process
+        '''
         if self.trades_placed > 0 and self.trades_completed < self.trades_placed:
-            if messagebox.askokcancel('Quit', 'Not all trades have completed, some trade data might not be recorded. Quit anyway?'):
+            if messagebox.askokcancel('Quit', 'Not all trades have completed. Quit anyway?'):
                 self.save_and_quit()
         else:
             self.save_and_quit()
 
     def save_and_quit(self):
         '''
-        If trades have been executed in the current session, save them to file. Stop all websockets and exit the GUI.
+        If trades have been executed in the current session,
+        save them to file. Stop all websockets and exit the GUI.
         '''
         if self.trades:
             df = pd.DataFrame(self.trades)
@@ -118,7 +144,11 @@ class BalanceGUI(tk.Frame):
             self.parent.destroy()
 
     def api_enter(self):
-        ''' Log in to Binance with the provided credentials, update user portfolio and start listening to price and account update websockets. '''
+        '''
+        Log in to Binance with the provided credentials,
+        update user portfolio and start listening to price and
+        account update websockets.
+        '''
         api_key = self.key_entry.get()
         self.key_entry.delete(0,'end')
         api_secret = self.secret_entry.get()
@@ -134,7 +164,11 @@ class BalanceGUI(tk.Frame):
         self.start_websockets()
 
     def start_websockets(self):
-        ''' Start websockets to get price updates for all coins in the portfolio, trade execution reports, and user account balance updates. Start the message queue processor. '''
+        '''
+        Start websockets to get price updates for all coins in the portfolio,
+        trade execution reports, and user account balance updates.
+        Start the message queue processor.
+        '''
         self.bm = BinanceSocketManager(self.client)
         self.bm.start()
         trade_currency = self.trade_currency
@@ -147,7 +181,10 @@ class BalanceGUI(tk.Frame):
         self.parent.after(self.timer, self.process_queue)
 
     def populate_portfolio(self):
-        ''' Get all symbol info from Binance needed to populate user portfolio data and execute trades '''
+        '''
+        Get all symbol info from Binance needed to
+        populate user portfolio data and execute trades
+        '''
         self.coins = self.coins_base
         self.portfolio.delete(*self.portfolio.get_children())
         exchange_coins = []
@@ -159,32 +196,65 @@ class BalanceGUI(tk.Frame):
             if coin != trade_currency:
                 price = float(self.client.get_symbol_ticker(symbol=pair)['price'])
                 symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
-                row = {'coin': coin, 'exchange_balance': float(balance['free']),
-                   'minprice': float(symbolinfo[0]['minPrice']), 'maxprice': float(symbolinfo[0]['maxPrice']), 'ticksize': float(symbolinfo[0]['tickSize']),
-                   'minqty': float(symbolinfo[1]['minQty']), 'maxqty': float(symbolinfo[1]['maxQty']), 'stepsize': float(symbolinfo[1]['stepSize']),                   
-                   'minnotional': float(symbolinfo[2]['minNotional']), 'symbol': pair, 'askprice' : price, 'bidprice': price, 'price': price}
+                row = {'coin': coin,
+                       'exchange_balance': float(balance['free']),
+                       'minprice': float(symbolinfo[0]['minPrice']),
+                       'maxprice': float(symbolinfo[0]['maxPrice']),
+                       'ticksize': float(symbolinfo[0]['tickSize']),
+                       'minqty': float(symbolinfo[1]['minQty']),
+                       'maxqty': float(symbolinfo[1]['maxQty']),
+                       'stepsize': float(symbolinfo[1]['stepSize']),                   
+                       'minnotional': float(symbolinfo[2]['minNotional']),
+                       'symbol': pair,
+                       'askprice' : price,
+                       'bidprice': price,
+                       'price': price}
             else:
                 fixed_balance = self.coins.loc[self.coins['coin'] == coin]['fixed_balance']
-                row = {'coin': coin, 'exchange_balance': float(balance['free']),
-                   'minprice': 0, 'maxprice': 0, 'ticksize': 0,
-                   'minqty': 0, 'maxqty': 0, 'stepsize': 0,                   
-                   'minnotional': 0, 'symbol': coin+coin, 'askprice' : 1.0, 'bidprice': 1.0, 'price': 1.0}
+                row = {'coin': coin,
+                       'exchange_balance': float(balance['free']),
+                       'minprice': 0,
+                       'maxprice': 0,
+                       'ticksize': 0,
+                       'minqty': 0,
+                       'maxqty': 0,
+                       'stepsize': 0,                   
+                       'minnotional': 0,
+                       'symbol': coin+coin,
+                       'askprice' : 1.0,
+                       'bidprice': 1.0,
+                       'price': 1.0}
             exchange_coins.append(row)
         exchange_coins = pd.DataFrame(exchange_coins)
         self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
-        self.coins['value'] = self.coins.apply(lambda row: row.price * (row.exchange_balance + row.fixed_balance), axis=1)
+        self.coins['value'] = self.coins.apply(lambda row: row.price * (row.exchange_balance +
+                                                                        row.fixed_balance), axis=1)
         self.total = np.sum(self.coins['value'])
         self.coins['actual'] = self.coins.apply(lambda row: 100.0 * row.value/self.total, axis=1)
-        self.statestring.set('BTC Value: ' + round_decimal(self.total,-1) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
+        self.update_status()
         i = 0
         for row in self.coins.itertuples():
             self.portfolio.insert('' , i, iid=row.coin, text=row.coin,
                                   values=(row.fixed_balance, row.exchange_balance,
-                                          '{0} %'.format(row.allocation), '{0:.2f} %'.format(row.actual), round_decimal(row.price, row.ticksize),round_decimal(row.price, row.ticksize),'','Waiting'))
+                                          '{0} %'.format(row.allocation),
+                                          '{0:.2f} %'.format(row.actual),
+                                          round_decimal(row.price, row.ticksize),
+                                          round_decimal(row.price, row.ticksize),
+                                          '',
+                                          'Waiting'))
             i += 1
 
+    def update_status(self):
+        self.statestring.set('BTC Value: ' + round_decimal(self.total,-1) +
+                             '\tImbalance: ' +
+                             round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
+        
     def queue_msg(self, msg):
-        ''' Whenever a weboscket receives a message, check for errors. If an error occurs, restart websockets. If no error, add it to the message queue. '''
+        '''
+        Whenever a weboscket receives a message, check for errors.
+        If an error occurs, restart websockets. If no error, add it to
+        the message queue.
+        '''
         if msg['e'] == 'error':
             self.bm.close()
             reactor.stop()
@@ -206,7 +276,11 @@ class BalanceGUI(tk.Frame):
                 self.update_trades(msg)
                 
     def process_queue(self, flush=False):
-        ''' Check for new messages in the queue periodically, and reroute them to the appropriate handler. Recursively calls itself to perpetuate the process. '''
+        '''
+        Check for new messages in the queue periodically,
+        and reroute them to the appropriate handler.
+        Recursively calls itself to perpetuate the process.
+        '''
         if flush:
             while not self.queue.empty():
                 self.get_msg()
@@ -227,44 +301,60 @@ class BalanceGUI(tk.Frame):
         self.trades.append(savemsg)    
 
     def update_balance(self, msg):
-        ''' Update user balances internally and on the display whenever an account update message is received. '''
+        '''
+        Update user balances internally and on the
+        display whenever an account update message is received.
+        '''
         balances = msg['B']
         for balance in balances:
             coin = balance['a']
             exchange_balance = balance['f'] + balance['l']
-            self.portfolio.set(coin, column='Exchange', value=round_decimal(exchange_balance,self.coins.loc[self.coins['coin'] == coin, 'stepsize'].values[0]))
+            exchange_balance = round_decimal(exchange_balance,self.coins.loc[self.coins['coin'] == coin, 'stepsize'].values[0])
+            self.portfolio.set(coin, column='Exchange', value=exchange_balance)
             self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'] = exchange_balance
             ask = self.coins.loc[self.coins['coin'] == coin, 'askprice'].values[0]
-            value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0]) * ask
+            value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] +
+                     self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0]) * ask
             self.coins.loc[self.coins['coin'] == coin, 'value'] = value
 
         self.total = np.sum(self.coins['value']) 
         self.coins['actual'] = self.coins.apply(lambda row: 100.0 * row.value / self.total, axis=1)
         for row in self.coins.itertuples():
             coin = row.coin
-            self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
-        self.statestring.set('BTC Value: ' + round_decimal(self.total,-1) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
+            actual = '{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0])
+            self.portfolio.set(coin, column='Actual', value=actual)
+        self.update_status()
         
     def update_price(self, msg):
-        ''' Update symbol prices and user allocations internally and on the display whenever a price update is received. '''
+        '''
+        Update symbol prices and user allocations internally
+        and on the display whenever a price update is received.
+        '''
         coin = msg['s'][:-len(self.trade_currency)]
         ask = float(msg['a'])
         bid = float(msg['b'])
-        self.portfolio.set(coin, column='Ask', value=round_decimal(ask,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
+        askprice = round_decimal(ask,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0])
+        bidprice = round_decimal(bid,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0])
+        self.portfolio.set(coin, column='Ask', value=askprice)
         self.coins.loc[self.coins['coin'] == coin, 'askprice'] = ask
-        self.portfolio.set(coin, column='Bid', value=round_decimal(bid,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
+        self.portfolio.set(coin, column='Bid', value=bidprice)
         self.coins.loc[self.coins['coin'] == coin, 'bidprice'] = bid
-        value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0]) * ask
+        value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] +
+                 self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0]) * ask
         self.coins.loc[self.coins['coin'] == coin, 'value'] = value
         self.total = np.sum(self.coins['value'])
         self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
         for row in self.coins.itertuples():
             coin = row.coin
-            self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
-        self.statestring.set('BTC Value: ' + round_decimal(self.total,-1) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
+            actual = '{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0])
+            self.portfolio.set(coin, column='Actual', value=actual)
+        self.update_status()
 
     def execute_transactions(self, side, dryrun):
-        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual) / 100.0 * self.total / row.price, axis=1)
+        '''
+        Calculate the required trade for each coin and execute
+        them if they belong to the appropriate side
+        '''
         for row in self.coins.itertuples():
             self.process_queue(flush=True)
             dif = (row.allocation - row.actual) / 100.0 * self.total / row.price
@@ -281,12 +371,10 @@ class BalanceGUI(tk.Frame):
             actual = row.actual
             qty = np.absolute(dif)
 
-            
             if side == SIDE_SELL:
                 price = row.bidprice
             if side == SIDE_BUY:
                 price = row.askprice
-           
             if side == SIDE_SELL and qty > balance and coin != self.trade_coin:
                 status = 'Insufficient funds for complete rebalance'
             action = 'None'
@@ -314,17 +402,32 @@ class BalanceGUI(tk.Frame):
             self.portfolio.set(coin, column='Action', value=action)
             
     def execute_sells(self):
+        '''
+        Perform any sells required by overachieving coins
+        '''
+        self.buy_button['state'] = 'normal'
+        self.sell_button['state'] = 'disabled'
         self.execute_transactions(side=SIDE_SELL, dryrun=False)
 
     def execute_buys(self):
+        '''
+        Perform any buys required by underachieving coins
+        '''
+        self.buy_button['state'] = 'disabled'
         self.execute_transactions(side=SIDE_BUY, dryrun=False)
 
     def dryrun(self):
+        '''
+        perform a dry run to list what trades are required
+        '''
         self.sell_button['state'] = 'normal'
         self.execute_transactions(side=SIDE_SELL, dryrun=True)
         self.execute_transactions(side=SIDE_BUY, dryrun=True)
 
     def place_order(self, coin, pair, trade_type, quantity, price, side, dryrun, stepsize, ticksize):
+        '''
+        Format and place an order using the Binance API
+        '''
         if trade_type == 'Market-Limit':
             if dryrun:
                 order = self.client.create_test_order(symbol=pair,
