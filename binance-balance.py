@@ -47,7 +47,7 @@ class BalanceGUI(tk.Frame):
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
-        self.portfolio_view.grid(row=0,column=0, sticky=tk.E+tk.W+tk.N+tk.S)
+        self.portfolio_view.grid(row=0,column=0, sticky=tk.E + tk.W+tk.N+tk.S)
         self.portfolio = ttk.Treeview(self.portfolio_view)
         self.portfolio['columns']=('Stored','Exchange', 'Target','Actual', 'Bid', 'Ask', 'Action', 'Status')
         for label in self.portfolio['columns']:
@@ -62,32 +62,32 @@ class BalanceGUI(tk.Frame):
 
         #options display
         self.controls_view = tk.LabelFrame(parent, text='Controls')
-        self.controls_view.grid(row=1, column=0, sticky=tk.E+tk.W)
+        self.controls_view.grid(row=1, column=0, sticky=tk.E + tk.W)
         key_label = tk.Label(self.controls_view, text='API Key')
-        key_label.grid(row=0, column=0,sticky=tk.E+tk.W)
+        key_label.grid(row=0, column=0,sticky=tk.E + tk.W)
         secret_label = tk.Label(self.controls_view, text='API Secret')
-        secret_label.grid(row=0, column=2,sticky=tk.E+tk.W)
+        secret_label.grid(row=0, column=2,sticky=tk.E + tk.W)
         self.key_entry = tk.Entry(self.controls_view, show='*')
-        self.key_entry.grid(row=0, column=1,sticky=tk.E+tk.W)
+        self.key_entry.grid(row=0, column=1,sticky=tk.E + tk.W)
         self.secret_entry = tk.Entry(self.controls_view, show='*')
-        self.secret_entry.grid(row=0, column=3,sticky=tk.E+tk.W)
+        self.secret_entry.grid(row=0, column=3,sticky=tk.E + tk.W)
         self.login = tk.Button(self.controls_view, text='Login', command = self.api_enter)
-        self.login.grid(row=0, column=4, sticky=tk.E+tk.W)
+        self.login.grid(row=0, column=4, sticky=tk.E + tk.W)
         self.ordertype = tk.StringVar()
         self.ordertype.set('Market-Limit')
         self.orderopt = tk.OptionMenu(self.controls_view, self.ordertype, 'Market', 'Market-Limit')
-        self.orderopt.grid(row=1, column=0, stick=tk.E+tk.W)
+        self.orderopt.grid(row=1, column=0, stick=tk.E + tk.W)
         self.orderopt['state'] = 'disabled'
         self.dryrun_button = tk.Button(self.controls_view, text='Dry Run', command=self.dryrun, state='disabled')
-        self.dryrun_button.grid(row=1,column=1, sticky=tk.E+tk.W)
+        self.dryrun_button.grid(row=1,column=1, sticky=tk.E + tk.W)
         self.sell_button = tk.Button(self.controls_view, text='Execute Sells', command=self.execute_sells, state='disabled')
-        self.sell_button.grid(row=1,column=2, sticky=tk.E+tk.W)
+        self.sell_button.grid(row=1,column=2, sticky=tk.E + tk.W)
         self.buy_button = tk.Button(self.controls_view, text='Execute Buys', command=self.execute_buys, state='disabled')
-        self.buy_button.grid(row=1,column=3, sticky=tk.E+tk.W)
+        self.buy_button.grid(row=1,column=3, sticky=tk.E + tk.W)
         self.statestring = tk.StringVar()
         self.statestring.set('Ready')
         self.state = tk.Label(self.controls_view, textvariable=self.statestring)
-        self.state.grid(row=0,column=5, sticky=tk.E+tk.W)
+        self.state.grid(row=0,column=5, sticky=tk.E + tk.W)
 
     def on_closing(self):
         ''' Check that all trades have executed before starting the save and exit process '''
@@ -157,7 +157,7 @@ class BalanceGUI(tk.Frame):
             pair = coin+trade_currency
             balance = self.client.get_asset_balance(asset=coin)
             if coin != trade_currency:
-                price = float(self.client.get_symbol_ticker(symbol = pair)['price'])
+                price = float(self.client.get_symbol_ticker(symbol=pair)['price'])
                 symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
                 row = {'coin': coin, 'exchange_balance': float(balance['free']),
                    'minprice': float(symbolinfo[0]['minPrice']), 'maxprice': float(symbolinfo[0]['maxPrice']), 'ticksize': float(symbolinfo[0]['tickSize']),
@@ -172,9 +172,9 @@ class BalanceGUI(tk.Frame):
             exchange_coins.append(row)
         exchange_coins = pd.DataFrame(exchange_coins)
         self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
-        self.coins['value'] = self.coins.apply(lambda row: row.price*(row.exchange_balance + row.fixed_balance), axis=1)
+        self.coins['value'] = self.coins.apply(lambda row: row.price * (row.exchange_balance + row.fixed_balance), axis=1)
         self.total = np.sum(self.coins['value'])
-        self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
+        self.coins['actual'] = self.coins.apply(lambda row: 100.0 * row.value/self.total, axis=1)
         self.statestring.set('BTC Value: ' + round_decimal(self.total,-1) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
         i = 0
         for row in self.coins.itertuples():
@@ -218,7 +218,7 @@ class BalanceGUI(tk.Frame):
         ''' Update balances whenever a partial execution occurs '''
         coin = msg['s'][:-len(self.trade_coin)]
         savemsg = {self.headers[key] : value for key, value in msg.items()}
-        percent = 100.0*float(savemsg['cumulative_filled_quantity'])/float(savemsg['order_quantity'])
+        percent = 100.0*float(savemsg['cumulative_filled_quantity']) / float(savemsg['order_quantity'])
         if percent < 100.0:
             self.portfolio.set(coin, column='Status', value = 'In Progress: {0:.2f}%'.format(percent))
         else:
@@ -235,11 +235,11 @@ class BalanceGUI(tk.Frame):
             self.portfolio.set(coin, column='Exchange', value=round_decimal(exchange_balance,self.coins.loc[self.coins['coin'] == coin, 'stepsize'].values[0]))
             self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'] = exchange_balance
             ask = self.coins.loc[self.coins['coin'] == coin, 'askprice'].values[0]
-            value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0])*ask
+            value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0]) * ask
             self.coins.loc[self.coins['coin'] == coin, 'value'] = value
 
         self.total = np.sum(self.coins['value']) 
-        self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
+        self.coins['actual'] = self.coins.apply(lambda row: 100.0 * row.value / self.total, axis=1)
         for row in self.coins.itertuples():
             coin = row.coin
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
@@ -254,7 +254,7 @@ class BalanceGUI(tk.Frame):
         self.coins.loc[self.coins['coin'] == coin, 'askprice'] = ask
         self.portfolio.set(coin, column='Bid', value=round_decimal(bid,self.coins.loc[self.coins['coin'] == coin, 'ticksize'].values[0]))
         self.coins.loc[self.coins['coin'] == coin, 'bidprice'] = bid
-        value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0])*ask
+        value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] + self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0]) * ask
         self.coins.loc[self.coins['coin'] == coin, 'value'] = value
         self.total = np.sum(self.coins['value'])
         self.coins['actual'] = self.coins.apply(lambda row: 100.0*row.value/self.total, axis=1)
@@ -266,12 +266,12 @@ class BalanceGUI(tk.Frame):
     def dryrun(self):
         ''' Determine approximate trades which must occur in order to rebalance, and report them to the user. Place test orders to ensure compliance with Binance API '''
         self.sell_button['state'] = 'normal'
-        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
+        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual) / 100.0 * self.total / row.price, axis=1)
         for row in self.coins.itertuples():
             self.process_queue(flush=True)
             status = ''
             coin = row.coin
-            pair = coin+self.trade_coin
+            pair = coin + self.trade_coin
             balance = row.exchange_balance
             actual = row.actual
             dif = row.difference
@@ -295,22 +295,21 @@ class BalanceGUI(tk.Frame):
                 action = 'Trade value too small'
             else:
                 action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
-                
                 trade_type = self.ordertype.get()
                 trade_currency = self.trade_coin
                 try:
                     if trade_type == 'Market-Limit':
-                        order = self.client.create_test_order(symbol = pair,
-                                                             side = side,
-                                                             type = ORDER_TYPE_LIMIT,
-                                                             timeInForce = TIME_IN_FORCE_GTC,
-                                                             quantity = round_decimal(qty, row.stepsize),
-                                                             price = round_decimal(price, row.ticksize))
+                        order = self.client.create_test_order(symbol=pair,
+                                                             side=side,
+                                                             type=ORDER_TYPE_LIMIT,
+                                                             timeInForce=TIME_IN_FORCE_GTC,
+                                                             quantity=round_decimal(qty, row.stepsize),
+                                                             price=round_decimal(price, row.ticksize))
                     elif trade_type == 'Market':
-                        order = self.client.create_test_order(symbol = pair,
-                                                             side = side,
-                                                             type = ORDER_TYPE_MARKET,
-                                                             quantity = round_decimal(qty, row.stepsize))                    
+                        order = self.client.create_test_order(symbol=pair,
+                                                             side=side,
+                                                             type=ORDER_TYPE_MARKET,
+                                                             quantity=round_decimal(qty, row.stepsize))                    
                 except Exception as e:
                     status = e
             self.portfolio.set(coin, column='Status', value=status)
@@ -320,7 +319,7 @@ class BalanceGUI(tk.Frame):
         ''' Execute any sell orders required to rebalance the portfolio, and enable buy orders '''
         self.sell_button['state'] = 'disabled'
         self.buy_button['state'] = 'normal'
-        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
+        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual) / 100.0 * self.total / row.price,axis=1)
         sellcoins = self.coins[self.coins['difference'] < 0]
         for row in sellcoins.itertuples():
             self.process_queue(flush=True)
@@ -345,22 +344,21 @@ class BalanceGUI(tk.Frame):
                 action = 'Trade value too small'
             else:
                 action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
-                
                 trade_type = self.ordertype.get()
                 trade_currency = self.trade_coin
                 try:
                     if trade_type == 'Market-Limit':
-                        order = self.client.create_order(symbol = pair,
-                                                             side = side,
-                                                             type = ORDER_TYPE_LIMIT,
-                                                             timeInForce = TIME_IN_FORCE_GTC,
-                                                             quantity = round_decimal(qty, row.stepsize),
-                                                             price = round_decimal(price, row.ticksize))
+                        order = self.client.create_order(symbol=pair,
+                                                             side=side,
+                                                             type=ORDER_TYPE_LIMIT,
+                                                             timeInForce=TIME_IN_FORCE_GTC,
+                                                             quantity=round_decimal(qty, row.stepsize),
+                                                             price=round_decimal(price, row.ticksize))
                     elif trade_type == 'Market':
-                        order = self.client.create_order(symbol = pair,
-                                                             side = side,
-                                                             type = ORDER_TYPE_MARKET,
-                                                             quantity = round_decimal(qty, row.stepsize))                    
+                        order = self.client.create_order(symbol=pair,
+                                                             side=side,
+                                                             type=ORDER_TYPE_MARKET,
+                                                             quantity=round_decimal(qty, row.stepsize))                    
                 except Exception as e:
                     self.portfolio.set(coin, column='Status', value=e)
                 else:
@@ -371,7 +369,7 @@ class BalanceGUI(tk.Frame):
     def execute_buys(self):
         ''' Execute any sell orders required to rebalance the portfolio '''
         self.buy_button['state'] = 'disabled'
-        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual)/100.0 * self.total/row.price,axis=1)
+        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual) / 100.0 * self.total / row.price,axis=1)
         buycoins = self.coins[self.coins['difference'] > 0]
         for row in buycoins.itertuples():
             self.process_queue(flush=True)
@@ -394,22 +392,21 @@ class BalanceGUI(tk.Frame):
                 action = 'Trade value too small'
             else:
                 action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
-                
                 trade_type = self.ordertype.get()
                 trade_currency = self.trade_coin
                 try:
                     if trade_type == 'Market-Limit':
-                        order = self.client.create_order(symbol = pair,
-                                                             side = side,
-                                                             type = ORDER_TYPE_LIMIT,
-                                                             timeInForce = TIME_IN_FORCE_GTC,
-                                                             quantity = round_decimal(qty, row.stepsize),
-                                                             price = round_decimal(price, row.ticksize))
+                        order = self.client.create_order(symbol=pair,
+                                                             side=side,
+                                                             type=ORDER_TYPE_LIMIT,
+                                                             timeInForce=TIME_IN_FORCE_GTC,
+                                                             quantity=round_decimal(qty, row.stepsize),
+                                                             price=round_decimal(price, row.ticksize))
                     elif trade_type == 'Market':
-                        order = self.client.create_order(symbol = pair,
-                                                             side = side,
-                                                             type = ORDER_TYPE_MARKET,
-                                                             quantity = round_decimal(qty, row.stepsize))                    
+                        order = self.client.create_order(symbol=pair,
+                                                             side=side,
+                                                             type=ORDER_TYPE_MARKET,
+                                                             quantity=round_decimal(qty, row.stepsize))                    
                 except Exception as e:
                     self.portfolio.set(coin, column='Status', value=e)
                 else:
