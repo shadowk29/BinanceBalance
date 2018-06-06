@@ -262,26 +262,31 @@ class BalanceGUI(tk.Frame):
             coin = row.coin
             self.portfolio.set(coin, column='Actual', value='{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0]))
         self.statestring.set('BTC Value: ' + round_decimal(self.total,-1) + '\tImbalance: ' +round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
-                              
-    def dryrun(self):
-        ''' Determine approximate trades which must occur in order to rebalance, and report them to the user. Place test orders to ensure compliance with Binance API '''
-        self.sell_button['state'] = 'normal'
+
+    def execute_transactions(self, side, dryrun):
         self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual) / 100.0 * self.total / row.price, axis=1)
         for row in self.coins.itertuples():
             self.process_queue(flush=True)
+            dif = (row.allocation - row.actual) / 100.0 * self.total / row.price
+
+            if dif < 0 and side == SIDE_BUY:
+                continue
+            if dif > 0 and side == SIDE_SELL:
+                continue
+            
             status = ''
             coin = row.coin
             pair = coin + self.trade_coin
             balance = row.exchange_balance
             actual = row.actual
-            dif = row.difference
             qty = np.absolute(dif)
-            if dif < 0:
-                side = SIDE_SELL
+
+            
+            if side == SIDE_SELL:
                 price = row.bidprice
-            else:
-                side = SIDE_BUY
+            if side == SIDE_BUY:
                 price = row.askprice
+           
             if side == SIDE_SELL and qty > balance and coin != self.trade_coin:
                 status = 'Insufficient funds for complete rebalance'
             action = 'None'
@@ -298,142 +303,54 @@ class BalanceGUI(tk.Frame):
                 trade_type = self.ordertype.get()
                 trade_currency = self.trade_coin
                 try:
-                    if trade_type == 'Market-Limit':
-                        order = self.client.create_test_order(symbol=pair,
-                                                             side=side,
-                                                             type=ORDER_TYPE_LIMIT,
-                                                             timeInForce=TIME_IN_FORCE_GTC,
-                                                             quantity=round_decimal(qty, row.stepsize),
-                                                             price=round_decimal(price, row.ticksize))
-                    elif trade_type == 'Market':
-                        order = self.client.create_test_order(symbol=pair,
-                                                             side=side,
-                                                             type=ORDER_TYPE_MARKET,
-                                                             quantity=round_decimal(qty, row.stepsize))                    
-                except (BinanceRequestException,
-                        BinanceAPIException,
-                        BinanceOrderException,
-                        BinanceOrderMinAmountException,
-                        BinanceOrderMinPriceException,
-                        BinanceOrderMinTotalException,
-                        BinanceOrderUnknownSymbolException,
-                        BinanceOrderInactiveSymbolException) as e:
-                    self.portfolio.set(coin, column='Status', value=e.message)
+                    self.place_order(coin, pair, trade_type, qty, price, side, dryrun, row.stepsize, row.ticksize)
+                except Exception as e:
+                    status = e.message
+                else:
+                    if not dryrun:
+                        self.trades_placed += 1
+                        status = 'Trade Placed'
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
- 
+            
     def execute_sells(self):
-        ''' Execute any sell orders required to rebalance the portfolio, and enable buy orders '''
-        self.sell_button['state'] = 'disabled'
-        self.buy_button['state'] = 'normal'
-        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual) / 100.0 * self.total / row.price,axis=1)
-        sellcoins = self.coins[self.coins['difference'] < 0]
-        for row in sellcoins.itertuples():
-            self.process_queue(flush=True)
-            coin = row.coin
-            balance = row.exchange_balance
-            pair = coin+self.trade_coin
-            actual = row.actual
-            dif = row.difference
-            qty = np.absolute(dif)
-            side = SIDE_SELL
-            price = row.bidprice
-            if qty > balance:
-                qty = balance
-            action = 'None'
-            if coin == self.trade_coin:
-                action = 'Ready'
-            elif qty < row.minqty:
-                action = 'Trade quantity too small'
-            elif qty > row.maxqty:
-                action = 'Trade quantity too large'
-            elif qty * price < row.minnotional:
-                action = 'Trade value too small'
-            else:
-                action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
-                trade_type = self.ordertype.get()
-                trade_currency = self.trade_coin
-                try:
-                    if trade_type == 'Market-Limit':
-                        order = self.client.create_order(symbol=pair,
-                                                             side=side,
-                                                             type=ORDER_TYPE_LIMIT,
-                                                             timeInForce=TIME_IN_FORCE_GTC,
-                                                             quantity=round_decimal(qty, row.stepsize),
-                                                             price=round_decimal(price, row.ticksize))
-                    elif trade_type == 'Market':
-                        order = self.client.create_order(symbol=pair,
-                                                             side=side,
-                                                             type=ORDER_TYPE_MARKET,
-                                                             quantity=round_decimal(qty, row.stepsize))                    
-                except (BinanceRequestException,
-                        BinanceAPIException,
-                        BinanceOrderException,
-                        BinanceOrderMinAmountException,
-                        BinanceOrderMinPriceException,
-                        BinanceOrderMinTotalException,
-                        BinanceOrderUnknownSymbolException,
-                        BinanceOrderInactiveSymbolException) as e:
-                    self.portfolio.set(coin, column='Status', value=e.message)
-                else:
-                    self.trades_placed += 1
-                    self.portfolio.set(coin, column='Status', value='Trade Placed')
-            self.portfolio.set(coin, column='Action', value=action)
+        self.execute_transactions(side=SIDE_SELL, dryrun=False)
 
     def execute_buys(self):
-        ''' Execute any sell orders required to rebalance the portfolio '''
-        self.buy_button['state'] = 'disabled'
-        self.coins['difference'] = self.coins.apply(lambda row: (row.allocation - row.actual) / 100.0 * self.total / row.price,axis=1)
-        buycoins = self.coins[self.coins['difference'] > 0]
-        for row in buycoins.itertuples():
-            self.process_queue(flush=True)
-            coin = row.coin
-            balance = row.exchange_balance
-            pair = coin+self.trade_coin
-            actual = row.actual
-            dif = row.difference
-            qty = np.absolute(dif)
-            side = SIDE_BUY
-            price = row.askprice
-            action = 'None'
-            if coin == self.trade_coin:
-                action = 'Ready'
-            elif qty < row.minqty:
-                action = 'Trade quantity too small'
-            elif qty > row.maxqty:
-                action = 'Trade quantity too large'
-            elif qty * price < row.minnotional:
-                action = 'Trade value too small'
+        self.execute_transactions(side=SIDE_BUY, dryrun=False)
+
+    def dryrun(self):
+        self.sell_button['state'] = 'normal'
+        self.execute_transactions(side=SIDE_SELL, dryrun=True)
+        self.execute_transactions(side=SIDE_BUY, dryrun=True)
+
+    def place_order(self, coin, pair, trade_type, quantity, price, side, dryrun, stepsize, ticksize):
+        if trade_type == 'Market-Limit':
+            if dryrun:
+                order = self.client.create_test_order(symbol=pair,
+                                                      side=side,
+                                                      type=ORDER_TYPE_LIMIT,
+                                                      timeInForce=TIME_IN_FORCE_GTC,
+                                                      quantity=round_decimal(quantity, stepsize),
+                                                      price=round_decimal(price, ticksize))
             else:
-                action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
-                trade_type = self.ordertype.get()
-                trade_currency = self.trade_coin
-                try:
-                    if trade_type == 'Market-Limit':
-                        order = self.client.create_order(symbol=pair,
-                                                             side=side,
-                                                             type=ORDER_TYPE_LIMIT,
-                                                             timeInForce=TIME_IN_FORCE_GTC,
-                                                             quantity=round_decimal(qty, row.stepsize),
-                                                             price=round_decimal(price, row.ticksize))
-                    elif trade_type == 'Market':
-                        order = self.client.create_order(symbol=pair,
-                                                             side=side,
-                                                             type=ORDER_TYPE_MARKET,
-                                                             quantity=round_decimal(qty, row.stepsize))                    
-                except (BinanceRequestException,
-                        BinanceAPIException,
-                        BinanceOrderException,
-                        BinanceOrderMinAmountException,
-                        BinanceOrderMinPriceException,
-                        BinanceOrderMinTotalException,
-                        BinanceOrderUnknownSymbolException,
-                        BinanceOrderInactiveSymbolException) as e:
-                    self.portfolio.set(coin, column='Status', value=e.message)
-                else:
-                    self.trades_placed += 1
-                    self.portfolio.set(coin, column='Status', value='Trade Placed')
-            self.portfolio.set(coin, column='Action', value=action)
+                order = self.client.create_order(symbol=pair,
+                                                 side=side,
+                                                 type=ORDER_TYPE_LIMIT,
+                                                 timeInForce=TIME_IN_FORCE_GTC,
+                                                 quantity=round_decimal(quantity, stepsize),
+                                                 price=round_decimal(price, ticksize))
+        elif trade_type == 'Market':
+            if dryrun:
+                order = self.client.create_test_order(symbol=pair,
+                                                      side=side,
+                                                      type=ORDER_TYPE_MARKET,
+                                                      quantity=round_decimal(quantity, stepsize))
+            else:
+                order = self.client.create_order(symbol=pair,
+                                                 side=side,
+                                                 type=ORDER_TYPE_MARKET,
+                                                 quantity=round_decimal(quantity, stepsize))
             
     def column_headers(self):
         ''' define human readable aliases for the headers in trade execution reports. '''
