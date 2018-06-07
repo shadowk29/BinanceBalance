@@ -16,13 +16,13 @@ import os.path
 
 def round_decimal(num, decimal):
     '''
-    Round a given floating point number 'num' to the nearest integer
+    Round a given floating point down number 'num' to the nearest integer
     multiple of another floating point number 'decimal' smaller than
     'num' and return it as a string with up to 8 decimal places,
     dropping any trailing zeros.
     '''
     if decimal > 0:
-        x = np.round(num/decimal, 0)*decimal
+        x = int(num/decimal)*decimal
     else:
         x = np.round(num, 8)
     return '{0:.8f}'.format(x).rstrip('0').rstrip('.')
@@ -361,7 +361,6 @@ class BalanceGUI(tk.Frame):
         them if they belong to the appropriate side
         '''
         tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
-        print tradecoin_balance
         for row in self.coins.itertuples():
             self.process_queue(flush=True)
             dif = (row.allocation - row.actual) / 100.0 * self.total / row.price
