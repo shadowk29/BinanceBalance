@@ -249,9 +249,9 @@ class BalanceGUI(tk.Frame):
             i += 1
 
     def update_status(self):
-        self.statestring.set('BTC Value: ' + round_decimal(self.total,-1) +
-                             '\tImbalance: ' +
-                             round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)+'%')
+        value = round_decimal(self.total,-1)
+        imbalance = round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)
+        self.statestring.set('BTC Value: ' + value +'\tImbalance: ' + imbalance +'%')
         
     def queue_msg(self, msg):
         '''
@@ -359,6 +359,8 @@ class BalanceGUI(tk.Frame):
         Calculate the required trade for each coin and execute
         them if they belong to the appropriate side
         '''
+        tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
+        print tradecoin_balance
         for row in self.coins.itertuples():
             self.process_queue(flush=True)
             dif = (row.allocation - row.actual) / 100.0 * self.total / row.price
@@ -375,23 +377,25 @@ class BalanceGUI(tk.Frame):
             actual = row.actual
             qty = np.absolute(dif)
 
+            action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
             if side == SIDE_SELL:
                 price = row.bidprice
             if side == SIDE_BUY:
                 price = row.askprice
             if side == SIDE_SELL and qty > balance and coin != self.trade_coin:
-                status = 'Insufficient funds for complete rebalance'
-            action = 'None'
+                status = 'Insufficient funds for sale'
             if coin == self.trade_coin:
-                action = 'Ready'
+                status = 'Ready'
             elif qty < row.minqty:
-                action = 'Trade quantity too small'
+                status = 'Trade quantity too small'
             elif qty > row.maxqty:
-                action = 'Trade quantity too large'
+                status = 'Trade quantity too large'
             elif qty * price < row.minnotional:
-                action = 'Trade value too small'
+                status = 'Trade value too small'
+            elif side == SIDE_BUY and qty * price > tradecoin_balance:
+                status = 'Insufficient ' + self.trade_coin + ' for purchase'
             else:
-                action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
+                
                 trade_type = self.ordertype.get()
                 trade_currency = self.trade_coin
                 try:
