@@ -383,7 +383,7 @@ class BalanceGUI(tk.Frame):
             if side == SIDE_BUY:
                 price = row.askprice
             if side == SIDE_SELL and qty > balance and coin != self.trade_coin:
-                status = 'Insufficient funds for sale'
+                status = 'Insufficient ' + coin + ' for sale'
             if coin == self.trade_coin:
                 status = 'Ready'
             elif qty < row.minqty:
