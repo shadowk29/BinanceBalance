@@ -45,10 +45,12 @@ class BalanceGUI(tk.Frame):
         self.headers = self.column_headers()
         coincount = len(coins)
         self.timer = 1000 / (5 * coincount)
+        self.parent.columnconfigure(0,weight=1, uniform='third')
+        self.parent.columnconfigure(1,weight=1, uniform='third')
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
-        self.portfolio_view.grid(row=0, column=0, sticky=tk.E + tk.W + tk.N + tk.S)
+        self.portfolio_view.grid(row=0, column=0, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
         self.portfolio = ttk.Treeview(self.portfolio_view)
         self.portfolio['columns']=('Stored','Exchange',
                                    'Target','Actual',
@@ -66,7 +68,7 @@ class BalanceGUI(tk.Frame):
 
         #options display
         self.controls_view = tk.LabelFrame(parent, text='Controls')
-        self.controls_view.grid(row=1, column=0, sticky=tk.E + tk.W)
+        self.controls_view.grid(row=1, column=0, sticky=tk.E + tk.W + tk.N + tk.S)
         
         key_label = tk.Label(self.controls_view, text='API Key')
         key_label.grid(row=0, column=0,sticky=tk.E + tk.W)
@@ -110,12 +112,32 @@ class BalanceGUI(tk.Frame):
                                     command=self.execute_buys,
                                     state='disabled')
         self.buy_button.grid(row=1, column=3, sticky=tk.E + tk.W)
+
+        #Statistics display
+        self.stats_view = tk.LabelFrame(parent, text='Statistics')
+        self.stats_view.grid(row=1, column=1, sticky=tk.E + tk.W + tk.N + tk.S)
+
         
-        self.statestring = tk.StringVar()
-        self.statestring.set('Ready')
-        self.state = tk.Label(self.controls_view,
-                              textvariable=self.statestring)
-        self.state.grid(row=0, column=5, sticky=tk.E + tk.W)
+        self.trade_currency_value_label = tk.Label(self.stats_view, text=self.trade_currency + ' Value:')
+        self.trade_currency_value_label.grid(row=0, column=0, sticky=tk.E + tk.W)
+        self.trade_currency_value_string = tk.StringVar()
+        self.trade_currency_value_string.set('0')
+        self.trade_currency_value = tk.Label(self.stats_view, textvariable=self.trade_currency_value_string)
+        self.trade_currency_value.grid(row=0, column=1, sticky=tk.E + tk.W)
+
+        self.imbalance_label = tk.Label(self.stats_view, text='Imbalance:')
+        self.imbalance_label.grid(row=1, column=0, sticky=tk.E + tk.W)
+        self.imbalance_string = tk.StringVar()
+        self.imbalance_string.set('0%')
+        self.imbalance_value = tk.Label(self.stats_view, textvariable=self.imbalance_string)
+        self.imbalance_value.grid(row=1, column=1, sticky=tk.E + tk.W)
+
+        self.messages_label = tk.Label(self.stats_view, text='Messages:')
+        self.messages_label.grid(row=0, column=2, sticky=tk.E + tk.W)
+        self.messages_string = tk.StringVar()
+        self.messages_string.set('0')
+        self.messages_queued = tk.Label(self.stats_view, textvariable=self.messages_string)
+        self.messages_queued.grid(row=0, column=3, sticky=tk.E + tk.W)
 
     def on_closing(self):
         ''' Check that all trades have executed
@@ -250,9 +272,11 @@ class BalanceGUI(tk.Frame):
             i += 1
 
     def update_status(self):
-        value = round_decimal(self.total,-1)
-        imbalance = round_decimal(np.sum(np.absolute(np.diff(self.coins['actual'].values - self.coins['allocation'].values))),0.01)
-        self.statestring.set('BTC Value: ' + value +'\tImbalance: ' + imbalance +'%')
+        value = '{0:.8f}'.format(self.total)
+        diff = np.diff(self.coins['actual'].values - self.coins['allocation'].values)
+        imbalance = '{0:.2f}%'.format(np.sum(np.absolute(diff)))
+        self.trade_currency_value_string.set(value)
+        self.imbalance_string.set(imbalance)
         
     def queue_msg(self, msg):
         '''
@@ -292,6 +316,7 @@ class BalanceGUI(tk.Frame):
         else:
             self.get_msg()
             self.master.after(self.timer, self.process_queue)
+        self.messages_string.set(str(self.queue.qsize()))
 
     def update_trades(msg):
         ''' Update balances whenever a partial execution occurs '''
