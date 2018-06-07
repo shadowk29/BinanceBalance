@@ -5,6 +5,7 @@ import pandas as pd
 from binance.client import Client
 from binance.websockets import BinanceSocketManager
 from binance.enums import *
+from binance.exceptions import *
 import numpy as np
 from datetime import datetime
 from tkinter import messagebox
@@ -400,7 +401,14 @@ class BalanceGUI(tk.Frame):
                 trade_currency = self.trade_coin
                 try:
                     self.place_order(coin, pair, trade_type, qty, price, side, dryrun, row.stepsize, row.ticksize)
-                except Exception as e:
+                except (BinanceRequestException,
+                        BinanceAPIException,
+                        BinanceOrderException,
+                        BinanceOrderMinAmountException,
+                        BinanceOrderMinPriceException,
+                        BinanceOrderMinTotalException,
+                        BinanceOrderUnknownSymbolException,
+                        BinanceOrderInactiveSymbolException) as e:
                     status = e.message
                 else:
                     if not dryrun:
