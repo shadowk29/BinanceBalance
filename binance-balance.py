@@ -223,34 +223,36 @@ class BalanceGUI(tk.Frame):
             if coin != trade_currency:
                 price = float(self.client.get_symbol_ticker(symbol=pair)['price'])
                 symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
-                row = {'coin': coin,
-                       'exchange_balance': float(balance['free']),
-                       'minprice': float(symbolinfo[0]['minPrice']),
-                       'maxprice': float(symbolinfo[0]['maxPrice']),
-                       'ticksize': float(symbolinfo[0]['tickSize']),
-                       'minqty': float(symbolinfo[1]['minQty']),
-                       'maxqty': float(symbolinfo[1]['maxQty']),
-                       'stepsize': float(symbolinfo[1]['stepSize']),                   
-                       'minnotional': float(symbolinfo[2]['minNotional']),
-                       'symbol': pair,
-                       'askprice' : price,
-                       'bidprice': price,
-                       'price': price}
+                row = {'coin':              coin,
+                       'exchange_balance':  float(balance['free']),
+                       'minprice':          float(symbolinfo[0]['minPrice']),
+                       'maxprice':          float(symbolinfo[0]['maxPrice']),
+                       'ticksize':          float(symbolinfo[0]['tickSize']),
+                       'minqty':            float(symbolinfo[1]['minQty']),
+                       'maxqty':            float(symbolinfo[1]['maxQty']),
+                       'stepsize':          float(symbolinfo[1]['stepSize']),                   
+                       'minnotional':       float(symbolinfo[2]['minNotional']),
+                       'symbol':            pair,
+                       'askprice' :         price,
+                       'bidprice':          price,
+                       'price':             price
+                       }
             else:
                 fixed_balance = self.coins.loc[self.coins['coin'] == coin]['fixed_balance']
-                row = {'coin': coin,
-                       'exchange_balance': float(balance['free']),
-                       'minprice': 0,
-                       'maxprice': 0,
-                       'ticksize': 0,
-                       'minqty': 0,
-                       'maxqty': 0,
-                       'stepsize': 0,                   
-                       'minnotional': 0,
-                       'symbol': coin+coin,
-                       'askprice' : 1.0,
-                       'bidprice': 1.0,
-                       'price': 1.0}
+                row = {'coin':              coin,
+                       'exchange_balance':  float(balance['free']),
+                       'minprice':          0,
+                       'maxprice':          0,
+                       'ticksize':          0,
+                       'minqty':            0,
+                       'maxqty':            0,
+                       'stepsize':          0,                   
+                       'minnotional':       0,
+                       'symbol':            coin+coin,
+                       'askprice' :         1.0,
+                       'bidprice':          1.0,
+                       'price':             1.0
+                       }
             exchange_coins.append(row)
         exchange_coins = pd.DataFrame(exchange_coins)
         self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
