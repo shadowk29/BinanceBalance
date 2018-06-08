@@ -263,14 +263,19 @@ class BalanceGUI(tk.Frame):
         self.update_status()
         i = 0
         for row in self.coins.itertuples():
-            self.portfolio.insert('' , i, iid=row.coin, text=row.coin,
+            self.portfolio.insert('' ,
+                                  i,
+                                  iid=row.coin,
+                                  text=row.coin,
                                   values=(row.fixed_balance, row.exchange_balance,
                                           '{0} %'.format(row.allocation),
                                           '{0:.2f} %'.format(row.actual),
                                           round_decimal(row.price, row.ticksize),
                                           round_decimal(row.price, row.ticksize),
                                           '',
-                                          'Waiting'))
+                                          'Waiting'
+                                          )
+                                  )
             i += 1
 
     def update_status(self):
