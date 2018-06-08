@@ -274,6 +274,7 @@ class BalanceGUI(tk.Frame):
             i += 1
 
     def update_status(self):
+        '''Update the statistics frame whenever a change occurs in balance or price'''
         value = '{0:.8f}'.format(self.total)
         diff = np.diff(self.coins['actual'].values - self.coins['allocation'].values)
         imbalance = '{0:.2f}%'.format(np.sum(np.absolute(diff)))
@@ -294,6 +295,7 @@ class BalanceGUI(tk.Frame):
             self.queue.put(msg)
 
     def get_msg(self):
+        '''Reroute new websocket messages to the appropriate handler'''
         try:
             msg = self.queue.get(block=False)
         except Queue.Empty:
@@ -308,8 +310,7 @@ class BalanceGUI(tk.Frame):
                 
     def process_queue(self, flush=False):
         '''
-        Check for new messages in the queue periodically,
-        and reroute them to the appropriate handler.
+        Check for new messages in the queue periodically.
         Recursively calls itself to perpetuate the process.
         '''
         if flush:
