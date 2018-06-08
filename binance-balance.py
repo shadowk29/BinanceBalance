@@ -45,8 +45,6 @@ class BalanceGUI(tk.Frame):
         self.headers = self.column_headers()
         coincount = len(coins)
         self.timer = 1000 / (5 * coincount)
-        self.parent.columnconfigure(0,weight=1, uniform='third')
-        self.parent.columnconfigure(1,weight=1, uniform='third')
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -123,7 +121,7 @@ class BalanceGUI(tk.Frame):
         self.buy_button.grid(row=1, column=3, sticky=tk.E + tk.W)
 
         self.messages_string = tk.StringVar()
-        self.messages_string.set('No')
+        self.messages_string.set('Up to Date')
         self.messages_queued = tk.Label(self.controls_view, textvariable=self.messages_string)
         self.messages_queued.grid(row=1, column=4, sticky=tk.E + tk.W)
 
