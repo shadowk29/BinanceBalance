@@ -63,11 +63,11 @@ class BalanceGUI(tk.Frame):
                                    )
         for label in self.portfolio['columns']:
             if label == 'Status':
-                self.portfolio.column(label, width=250)
+                self.portfolio.column(label, width=200)
             elif label == 'Action':
-                self.portfolio.column(label, width=150)
+                self.portfolio.column(label, width=120)
             else:
-                self.portfolio.column(label, width=80)
+                self.portfolio.column(label, width=100)
             self.portfolio.heading(label, text=label)
         self.portfolio.grid(row=0,column=0)
 
