@@ -453,7 +453,6 @@ class BalanceGUI(tk.Frame):
         '''
         Perform any sells required by overachieving coins
         '''
-        self.buy_button['state'] = 'normal'
         self.sell_button['state'] = 'disabled'
         self.execute_transactions(side=SIDE_SELL, dryrun=False)
 
@@ -469,6 +468,7 @@ class BalanceGUI(tk.Frame):
         perform a dry run to list what trades are required
         '''
         self.sell_button['state'] = 'normal'
+        self.buy_button['state'] = 'normal'
         self.execute_transactions(side=SIDE_SELL, dryrun=True)
         self.execute_transactions(side=SIDE_BUY, dryrun=True)
 
