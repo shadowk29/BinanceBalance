@@ -51,7 +51,7 @@ class BalanceGUI(tk.Frame):
         
         
         self.portfolio_view.grid(row=0, column=0, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
-        self.portfolio = ttk.Treeview(self.portfolio_view)
+        self.portfolio = ttk.Treeview(self.portfolio_view, height = len(self.coins), selectmode = 'extended')
         self.portfolio['columns']=('Stored',
                                    'Exchange',
                                    'Target',
@@ -67,7 +67,7 @@ class BalanceGUI(tk.Frame):
             elif label == 'Action':
                 self.portfolio.column(label, width=150)
             else:
-                self.portfolio.column(label, width=100)
+                self.portfolio.column(label, width=80)
             self.portfolio.heading(label, text=label)
         self.portfolio.grid(row=0,column=0)
 
@@ -283,7 +283,10 @@ class BalanceGUI(tk.Frame):
                                           )
                                   )
             i += 1
-
+        #self.portfolio_view.grid_propagate(False)
+        #self.portfolio_view.config(width=self.portfolio.winfo_width())
+        #self.portfolio_view.config(height=2*self.portfolio.winfo_height())
+        
     def update_status(self):
         '''Update the statistics frame whenever a change occurs in balance or price'''
         value = '{0:.8f}'.format(self.total)
