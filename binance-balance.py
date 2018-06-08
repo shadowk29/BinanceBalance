@@ -54,6 +54,7 @@ class BalanceGUI(tk.Frame):
         self.portfolio = ttk.Treeview(self.portfolio_view, height = len(self.coins), selectmode = 'extended')
         self.portfolio['columns']=('Stored',
                                    'Exchange',
+                                   'Locked',
                                    'Target',
                                    'Actual',
                                    'Bid',
@@ -230,6 +231,7 @@ class BalanceGUI(tk.Frame):
                 symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
                 row = {'coin':              coin,
                        'exchange_balance':  float(balance['free']),
+                       'locked_balance':    float(balance['locked']),
                        'minprice':          float(symbolinfo[0]['minPrice']),
                        'maxprice':          float(symbolinfo[0]['maxPrice']),
                        'ticksize':          float(symbolinfo[0]['tickSize']),
@@ -246,6 +248,7 @@ class BalanceGUI(tk.Frame):
                 fixed_balance = self.coins.loc[self.coins['coin'] == coin]['fixed_balance']
                 row = {'coin':              coin,
                        'exchange_balance':  float(balance['free']),
+                       'locked_balance':    float(balance['locked']),
                        'minprice':          0,
                        'maxprice':          0,
                        'ticksize':          0,
@@ -274,6 +277,7 @@ class BalanceGUI(tk.Frame):
                                   text=row.coin,
                                   values=(row.fixed_balance,
                                           row.exchange_balance,
+                                          row.locked_balance,
                                           '{0} %'.format(row.allocation),
                                           '{0:.2f} %'.format(row.actual),
                                           round_decimal(row.price, row.ticksize),
@@ -283,9 +287,6 @@ class BalanceGUI(tk.Frame):
                                           )
                                   )
             i += 1
-        #self.portfolio_view.grid_propagate(False)
-        #self.portfolio_view.config(width=self.portfolio.winfo_width())
-        #self.portfolio_view.config(height=2*self.portfolio.winfo_height())
         
     def update_status(self):
         '''Update the statistics frame whenever a change occurs in balance or price'''
@@ -360,9 +361,13 @@ class BalanceGUI(tk.Frame):
         for balance in balances:
             coin = balance['a']
             exchange_balance = balance['f'] + balance['l']
+            locked_balance = balance['l']
             exchange_balance = round_decimal(exchange_balance,self.coins.loc[self.coins['coin'] == coin, 'stepsize'].values[0])
+            locked_balance = round_decimal(locked_balance,self.coins.loc[self.coins['coin'] == coin, 'stepsize'].values[0])
             self.portfolio.set(coin, column='Exchange', value=exchange_balance)
+            self.portfolio.set(coin, column='Locked', value=locked_balance)
             self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'] = exchange_balance
+            self.coins.loc[self.coins['coin'] == coin, 'locked_balance'] = locked_balance
             ask = self.coins.loc[self.coins['coin'] == coin, 'askprice'].values[0]
             value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] +
                      self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0]) * ask
@@ -406,9 +411,12 @@ class BalanceGUI(tk.Frame):
         Calculate the required trade for each coin and execute
         them if they belong to the appropriate side
         '''
-        tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
+        
         for row in self.coins.itertuples():
             self.process_queue(flush=True)
+            tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
+            tradecoin_locked = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['locked_balance'].values)
+            tradecoin_free = tradecoin_balance - tradecoin_locked
             dif = (row.allocation - row.actual) / 100.0 * self.total / row.price
 
             if dif < 0 and side == SIDE_BUY:
@@ -438,8 +446,8 @@ class BalanceGUI(tk.Frame):
                 status = 'Trade quantity too large'
             elif qty * price < row.minnotional:
                 status = 'Trade value too small'
-            elif side == SIDE_BUY and qty * price > tradecoin_balance:
-                status = 'Insufficient ' + self.trade_coin + ' for purchase'
+            elif side == SIDE_BUY and qty * price > tradecoin_free:
+                status = 'Insufficient free ' + self.trade_coin + ' for purchase'
             else:
                 
                 trade_type = self.ordertype.get()
