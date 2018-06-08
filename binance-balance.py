@@ -77,10 +77,10 @@ class BalanceGUI(tk.Frame):
             self.controls_view.columnconfigure(i,weight=1, uniform='controls')
         self.controls_view.grid(row=1, column=0, sticky=tk.E + tk.W + tk.N + tk.S)
         
-        key_label = tk.Label(self.controls_view, text='API Key')
+        key_label = tk.Label(self.controls_view, text='API Key', relief='ridge')
         key_label.grid(row=0, column=0,sticky=tk.E + tk.W)
         
-        secret_label = tk.Label(self.controls_view, text='API Secret')
+        secret_label = tk.Label(self.controls_view, text='API Secret', relief='ridge')
         secret_label.grid(row=0, column=2,sticky=tk.E + tk.W)
         
         self.key_entry = tk.Entry(self.controls_view, show='*')
