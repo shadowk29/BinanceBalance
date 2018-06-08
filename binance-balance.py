@@ -54,10 +54,15 @@ class BalanceGUI(tk.Frame):
         
         self.portfolio_view.grid(row=0, column=0, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
         self.portfolio = ttk.Treeview(self.portfolio_view)
-        self.portfolio['columns']=('Stored','Exchange',
-                                   'Target','Actual',
-                                   'Bid', 'Ask',
-                                   'Action', 'Status')
+        self.portfolio['columns']=('Stored',
+                                   'Exchange',
+                                   'Target',
+                                   'Actual',
+                                   'Bid',
+                                   'Ask',
+                                   'Action',
+                                   'Status'
+                                   )
         for label in self.portfolio['columns']:
             if label == 'Status':
                 self.portfolio.column(label, width=250)
@@ -269,7 +274,8 @@ class BalanceGUI(tk.Frame):
                                   i,
                                   iid=row.coin,
                                   text=row.coin,
-                                  values=(row.fixed_balance, row.exchange_balance,
+                                  values=(row.fixed_balance,
+                                          row.exchange_balance,
                                           '{0} %'.format(row.allocation),
                                           '{0:.2f} %'.format(row.actual),
                                           round_decimal(row.price, row.ticksize),
