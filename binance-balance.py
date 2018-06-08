@@ -447,7 +447,7 @@ class BalanceGUI(tk.Frame):
             elif qty * price < row.minnotional:
                 status = 'Trade value too small'
             elif side == SIDE_BUY and qty * price > tradecoin_free:
-                status = 'Insufficient free ' + self.trade_coin + ' for purchase'
+                status = 'Insufficient ' + self.trade_coin + ' for purchase'
             else:
                 
                 trade_type = self.ordertype.get()
