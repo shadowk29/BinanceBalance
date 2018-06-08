@@ -427,7 +427,7 @@ class BalanceGUI(tk.Frame):
             status = ''
             coin = row.coin
             pair = coin + self.trade_coin
-            balance = row.exchange_balance
+            balance = row.exchange_balance - row.locked_balance
             actual = row.actual
             qty = np.absolute(dif)
 
