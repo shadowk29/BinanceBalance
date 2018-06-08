@@ -50,6 +50,8 @@ class BalanceGUI(tk.Frame):
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
+        
+        
         self.portfolio_view.grid(row=0, column=0, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
         self.portfolio = ttk.Treeview(self.portfolio_view)
         self.portfolio['columns']=('Stored','Exchange',
@@ -68,6 +70,8 @@ class BalanceGUI(tk.Frame):
 
         #options display
         self.controls_view = tk.LabelFrame(parent, text='Controls')
+        for i in range(5):
+            self.controls_view.columnconfigure(i,weight=1, uniform='controls')
         self.controls_view.grid(row=1, column=0, sticky=tk.E + tk.W + tk.N + tk.S)
         
         key_label = tk.Label(self.controls_view, text='API Key')
@@ -113,6 +117,11 @@ class BalanceGUI(tk.Frame):
                                     state='disabled')
         self.buy_button.grid(row=1, column=3, sticky=tk.E + tk.W)
 
+        self.messages_string = tk.StringVar()
+        self.messages_string.set('No')
+        self.messages_queued = tk.Label(self.controls_view, textvariable=self.messages_string)
+        self.messages_queued.grid(row=1, column=4, sticky=tk.E + tk.W)
+
         #Statistics display
         self.stats_view = tk.LabelFrame(parent, text='Statistics')
         self.stats_view.grid(row=1, column=1, sticky=tk.E + tk.W + tk.N + tk.S)
@@ -131,13 +140,6 @@ class BalanceGUI(tk.Frame):
         self.imbalance_string.set('0%')
         self.imbalance_value = tk.Label(self.stats_view, textvariable=self.imbalance_string)
         self.imbalance_value.grid(row=1, column=1, sticky=tk.E + tk.W)
-
-        self.messages_label = tk.Label(self.stats_view, text='Messages:')
-        self.messages_label.grid(row=0, column=2, sticky=tk.E + tk.W)
-        self.messages_string = tk.StringVar()
-        self.messages_string.set('0')
-        self.messages_queued = tk.Label(self.stats_view, textvariable=self.messages_string)
-        self.messages_queued.grid(row=0, column=3, sticky=tk.E + tk.W)
 
     def on_closing(self):
         ''' Check that all trades have executed
@@ -324,7 +326,11 @@ class BalanceGUI(tk.Frame):
         else:
             self.get_msg()
             self.master.after(self.timer, self.process_queue)
-        self.messages_string.set(str(self.queue.qsize()))
+        n = self.queue.qsize()
+        if n > 0:
+            self.messages_string.set('{0} Updates Queued'.format(n))
+        else:
+            self.messages_string.set('Up to Date')
 
     def update_trades(msg):
         ''' Update balances whenever a partial execution occurs '''
