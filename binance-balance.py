@@ -364,7 +364,7 @@ class BalanceGUI(tk.Frame):
             if coin in coins:
                 exchange_balance = float(balance['f']) + float(balance['l'])
                 locked_balance = float(balance['l'])
-                self.portfolio.set(coin, column='Exchange', value=round_decimal(exchange_balance,self.coins.loc[self.coins['coin'] == coin]['stepsize'].values[0])
+                self.portfolio.set(coin, column='Exchange', value=round_decimal(exchange_balance,self.coins.loc[self.coins['coin'] == coin]['stepsize'].values[0]))
                 self.portfolio.set(coin, column='Locked', value=round_decimal(locked_balance,self.coins.loc[self.coins['coin'] == coin]['stepsize'].values[0]))
                 self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'] = exchange_balance
                 self.coins.loc[self.coins['coin'] == coin, 'locked_balance'] = locked_balance
