@@ -271,6 +271,7 @@ class BalanceGUI(tk.Frame):
         self.update_status()
         i = 0
         for row in self.coins.itertuples():
+            print row.coin
             self.portfolio.insert('' ,
                                   i,
                                   iid=row.coin,
@@ -340,7 +341,7 @@ class BalanceGUI(tk.Frame):
         else:
             self.messages_string.set('Up to Date')
 
-    def update_trades(msg):
+    def update_trades(self, msg):
         ''' Update balances whenever a partial execution occurs '''
         coin = msg['s'][:-len(self.trade_coin)]
         savemsg = {self.headers[key] : value for key, value in msg.items()}
@@ -358,20 +359,22 @@ class BalanceGUI(tk.Frame):
         display whenever an account update message is received.
         '''
         balances = msg['B']
+        coins = self.coins['coin'].values
         for balance in balances:
             coin = balance['a']
-            exchange_balance = balance['f'] + balance['l']
-            locked_balance = balance['l']
-            exchange_balance = round_decimal(exchange_balance,self.coins.loc[self.coins['coin'] == coin, 'stepsize'].values[0])
-            locked_balance = round_decimal(locked_balance,self.coins.loc[self.coins['coin'] == coin, 'stepsize'].values[0])
-            self.portfolio.set(coin, column='Exchange', value=exchange_balance)
-            self.portfolio.set(coin, column='Locked', value=locked_balance)
-            self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'] = exchange_balance
-            self.coins.loc[self.coins['coin'] == coin, 'locked_balance'] = locked_balance
-            ask = self.coins.loc[self.coins['coin'] == coin, 'askprice'].values[0]
-            value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] +
-                     self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0]) * ask
-            self.coins.loc[self.coins['coin'] == coin, 'value'] = value
+            if coin in coins:
+                exchange_balance = float(balance['f']) + float(balance['l'])
+                locked_balance = float(balance['l'])
+                exchange_balance = round_decimal(exchange_balance,self.coins.loc[self.coins['coin'] == coin]['stepsize'].values[0])
+                locked_balance = round_decimal(locked_balance,self.coins.loc[self.coins['coin'] == coin]['stepsize'].values[0])
+                self.portfolio.set(coin, column='Exchange', value=exchange_balance)
+                self.portfolio.set(coin, column='Locked', value=locked_balance)
+                self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'] = exchange_balance
+                self.coins.loc[self.coins['coin'] == coin, 'locked_balance'] = locked_balance
+                ask = self.coins.loc[self.coins['coin'] == coin, 'askprice'].values[0]
+                value = (float(self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0]) +
+                         float(self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0])) * ask
+                self.coins.loc[self.coins['coin'] == coin, 'value'] = value
 
         self.total = np.sum(self.coins['value']) 
         self.coins['actual'] = self.coins.apply(lambda row: 100.0 * row.value / self.total, axis=1)
@@ -395,8 +398,8 @@ class BalanceGUI(tk.Frame):
         self.coins.loc[self.coins['coin'] == coin, 'askprice'] = ask
         self.portfolio.set(coin, column='Bid', value=bidprice)
         self.coins.loc[self.coins['coin'] == coin, 'bidprice'] = bid
-        value = (self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0] +
-                 self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0]) * ask
+        value = (float(self.coins.loc[self.coins['coin'] == coin, 'exchange_balance'].values[0]) +
+                 float(self.coins.loc[self.coins['coin'] == coin, 'fixed_balance'].values[0])) * ask
         self.coins.loc[self.coins['coin'] == coin, 'value'] = value
         self.total = np.sum(self.coins['value'])
         self.coins['actual'] = self.coins.apply(lambda row: 100.0 * row.value / self.total, axis=1)
@@ -414,8 +417,8 @@ class BalanceGUI(tk.Frame):
         
         for row in self.coins.itertuples():
             self.process_queue(flush=True)
-            tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
-            tradecoin_locked = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['locked_balance'].values)
+            tradecoin_balance = float(np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values))
+            tradecoin_locked = float(np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['locked_balance'].values))
             tradecoin_free = tradecoin_balance - tradecoin_locked
             dif = (row.allocation - row.actual) / 100.0 * self.total / row.price
 
@@ -427,7 +430,7 @@ class BalanceGUI(tk.Frame):
             status = ''
             coin = row.coin
             pair = coin + self.trade_coin
-            balance = row.exchange_balance - row.locked_balance
+            balance = float(row.exchange_balance) - float(row.locked_balance)
             actual = row.actual
             qty = np.absolute(dif)
 
@@ -534,9 +537,11 @@ class BalanceGUI(tk.Frame):
                 'c': 'client_order_id',
                 'S': 'side',
                 'o': 'type',
+                'O': 'unknown_1',
                 'f': 'time_in_force',
                 'q': 'order_quantity',
                 'p': 'order_price',
+                'P': 'stop_price',
                 'F': 'iceberg_quantity',
                 'g': 'ignore_1',
                 'C': 'original_client_order_id',
@@ -546,6 +551,7 @@ class BalanceGUI(tk.Frame):
                 'i': 'order_id',
                 'l': 'last_executed_quantity',
                 'z': 'cumulative_filled_quantity',
+                'Z': 'unknown_2',
                 'L': 'last_executed_price',
                 'n': 'commission_amount',
                 'N': 'commission_asset',
@@ -555,7 +561,6 @@ class BalanceGUI(tk.Frame):
                 'w': 'order_working',
                 'm': 'maker_side',
                 'M': 'ignore_3'}
-
  
 def main():
     root = tk.Tk()
