@@ -440,12 +440,10 @@ class BalanceGUI(tk.Frame):
                 status = 'Insufficient ' + coin + ' for sale'
             if coin == self.trade_coin:
                 status = 'Ready'
-            elif qty < row.minqty:
-                status = 'Trade quantity too small'
+            elif qty < row.minqty or qty * price < row.minnotional:
+                status = 'Trade value too small'
             elif qty > row.maxqty:
                 status = 'Trade quantity too large'
-            elif qty * price < row.minnotional:
-                status = 'Trade value too small'
             elif side == SIDE_BUY and qty * price > tradecoin_free:
                 status = 'Insufficient ' + self.trade_coin + ' for purchase'
             else:
