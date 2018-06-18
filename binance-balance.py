@@ -531,7 +531,13 @@ class BalanceGUI(tk.Frame):
         self.buy_button['state'] = 'normal'
         self.execute_transactions(side=SIDE_SELL, dryrun=True)
         self.execute_transactions(side=SIDE_BUY, dryrun=True)
+        self.parent.after(30000, self.disable_buttons)
 
+    def disable_buttons(self):
+        self.sell_button['state'] = 'disabled'
+        self.buy_button['state'] = 'disabled'
+        
+        
     def place_order(self, coin, pair, trade_type,
                     quantity, price, side, dryrun,
                     stepsize, ticksize):
