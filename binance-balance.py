@@ -188,16 +188,26 @@ class BalanceGUI(tk.Frame):
         self.key_entry.delete(0,'end')
         api_secret = self.secret_entry.get()
         self.secret_entry.delete(0,'end')
-        self.key_entry['state'] = 'disabled'
-        self.secret_entry['state'] = 'disabled'
-        self.login['state'] = 'disabled'
-        self.dryrun_button['state'] = 'normal'
-        self.orderopt['state'] = 'normal'
-        self.client = Client(api_key, api_secret)
-        status = self.client.get_system_status()
-        self.populate_portfolio()
-        self.start_websockets()
-
+        
+        try:
+            self.client = Client(api_key, api_secret)
+            status = self.client.get_system_status()
+            self.populate_portfolio()
+            self.start_websockets()
+        except BinanceAPIException as e:
+            top = tk.Toplevel()
+            top.title('Login Error')
+            msg = tk.Message(top, text='Error {0}: {1}'.format(e.status_code, e.message))
+            msg.grid(row=0, column=0)
+            button = tk.Button(top, text="Dismiss", command=top.destroy)
+            button.grid(row=1, column=0)
+        else:
+            self.key_entry['state'] = 'disabled'
+            self.secret_entry['state'] = 'disabled'
+            self.login['state'] = 'disabled'
+            self.dryrun_button['state'] = 'normal'
+            self.orderopt['state'] = 'normal'
+            
     def start_websockets(self):
         '''
         Start websockets to get price updates for all coins in the portfolio,
