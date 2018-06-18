@@ -467,14 +467,12 @@ class BalanceGUI(tk.Frame):
                 continue
             if dif > 0 and side == SIDE_SELL:
                 continue
-            
             status = ''
             coin = row.coin
             pair = coin + self.trade_coin
             balance = float(row.exchange_balance) - float(row.locked_balance)
             actual = row.actual
             qty = np.absolute(dif)
-
             action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
             if side == SIDE_SELL:
                 price = row.bidprice
