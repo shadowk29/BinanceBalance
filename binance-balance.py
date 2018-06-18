@@ -379,6 +379,7 @@ class BalanceGUI(tk.Frame):
             coin = row.coin
             actual = '{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0])
             self.portfolio.set(coin, column='Actual', value=actual)
+        self.update_actions()
         self.update_status()
         
     def update_price(self, msg):
@@ -404,8 +405,48 @@ class BalanceGUI(tk.Frame):
             coin = row.coin
             actual = '{0:.2f}%'.format(self.coins.loc[self.coins['coin'] == coin, 'actual'].values[0])
             self.portfolio.set(coin, column='Actual', value=actual)
+        self.update_actions()
         self.update_status()
 
+    def update_actions(self):
+        for row in self.coins.itertuples():
+            tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
+            tradecoin_locked = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['locked_balance'].values)
+            tradecoin_free = tradecoin_balance - tradecoin_locked
+            dif = (row.allocation - row.actual) / 100.0 * self.total / row.price
+
+            if dif < 0:
+                side = SIDE_SELL
+            if dif > 0:
+                side = SIDE_BUY
+            
+            status = ''
+            coin = row.coin
+            pair = coin + self.trade_coin
+            balance = float(row.exchange_balance) - float(row.locked_balance)
+            actual = row.actual
+            qty = np.absolute(dif)
+
+            action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
+            if side == SIDE_SELL:
+                price = row.bidprice
+            if side == SIDE_BUY:
+                price = row.askprice
+            if side == SIDE_SELL and qty > balance and coin != self.trade_coin:
+                status = 'Insufficient ' + coin + ' for sale'
+            if coin == self.trade_coin:
+                status = 'Ready'
+            elif qty < row.minqty or qty * price < row.minnotional:
+                status = 'Trade value too small'
+            elif qty > row.maxqty:
+                status = 'Trade quantity too large'
+            elif side == SIDE_BUY and qty * price > tradecoin_free:
+                status = 'Insufficient ' + self.trade_coin + ' for purchase'
+            else:
+                status = 'Trade Ready'
+            self.portfolio.set(coin, column='Status', value=status)
+            self.portfolio.set(coin, column='Action', value=action)
+            
     def execute_transactions(self, side, dryrun):
         '''
         Calculate the required trade for each coin and execute
