@@ -193,7 +193,6 @@ class BalanceGUI(tk.Frame):
             self.client = Client(api_key, api_secret)
             status = self.client.get_system_status()
             self.populate_portfolio()
-            self.start_websockets()
         except BinanceAPIException as e:
             top = tk.Toplevel()
             top.title('Login Error')
@@ -207,6 +206,7 @@ class BalanceGUI(tk.Frame):
             self.login['state'] = 'disabled'
             self.dryrun_button['state'] = 'normal'
             self.orderopt['state'] = 'normal'
+            self.start_websockets()
             
     def start_websockets(self):
         '''
