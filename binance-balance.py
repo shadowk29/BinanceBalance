@@ -45,6 +45,7 @@ class BalanceGUI(tk.Frame):
         self.headers = self.column_headers()
         coincount = len(coins)
         self.timer = 1000 / (5 * coincount)
+        self.execute_window = 30000 
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -409,6 +410,9 @@ class BalanceGUI(tk.Frame):
         self.update_status()
 
     def update_actions(self):
+        '''
+        Calcuate required trades and update the main GUI
+        '''
         for row in self.coins.itertuples():
             tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
             tradecoin_locked = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['locked_balance'].values)
@@ -452,7 +456,6 @@ class BalanceGUI(tk.Frame):
         Calculate the required trade for each coin and execute
         them if they belong to the appropriate side
         '''
-        
         for row in self.coins.itertuples():
             self.process_queue(flush=True)
             tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
@@ -531,9 +534,12 @@ class BalanceGUI(tk.Frame):
         self.buy_button['state'] = 'normal'
         self.execute_transactions(side=SIDE_SELL, dryrun=True)
         self.execute_transactions(side=SIDE_BUY, dryrun=True)
-        self.parent.after(30000, self.disable_buttons)
+        self.parent.after(self.execute_window, self.disable_buttons)
 
     def disable_buttons(self):
+        '''
+        Disable buy and sell buttons on a timer
+        '''
         self.sell_button['state'] = 'disabled'
         self.buy_button['state'] = 'disabled'
         
