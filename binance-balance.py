@@ -447,7 +447,6 @@ class BalanceGUI(tk.Frame):
             elif side == SIDE_BUY and qty * price > tradecoin_free:
                 status = 'Insufficient ' + self.trade_coin + ' for purchase'
             else:
-                status = 'Trade Ready'
                 trade_type = self.ordertype.get()
                 trade_currency = self.trade_coin
                 try:
@@ -462,6 +461,7 @@ class BalanceGUI(tk.Frame):
                         BinanceOrderInactiveSymbolException) as e:
                     status = e.message
                 else:
+                    status = 'Trade Ready'
                     if not dryrun:
                         self.trades_placed += 1
                         status = 'Trade Placed'
