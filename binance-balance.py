@@ -45,7 +45,8 @@ class BalanceGUI(tk.Frame):
         self.headers = self.column_headers()
         coincount = len(coins)
         self.timer = 1000 / (5 * coincount)
-        self.execute_window = 30000 
+        self.execute_window = 30000
+        self.ignore_backlog = 5
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -336,7 +337,7 @@ class BalanceGUI(tk.Frame):
             self.get_msg()
             self.master.after(self.timer, self.process_queue)
         n = self.queue.qsize()
-        if n > 0:
+        if n > self.ignore_backlog:
             self.messages_string.set('{0} Updates Queued'.format(n))
         else:
             self.messages_string.set('Up to Date')
