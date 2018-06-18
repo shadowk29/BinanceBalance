@@ -193,7 +193,8 @@ class BalanceGUI(tk.Frame):
             self.client = Client(api_key, api_secret)
             status = self.client.get_system_status()
             self.populate_portfolio()
-        except BinanceAPIException as e:
+        except (BinanceRequestException,
+                BinanceAPIException) as e:
             top = tk.Toplevel()
             top.title('Login Error')
             msg = tk.Message(top, text='Error {0}: {1}'.format(e.status_code, e.message))
