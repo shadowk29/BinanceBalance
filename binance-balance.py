@@ -46,6 +46,7 @@ class BalanceGUI(tk.Frame):
         coincount = len(coins)
         self.timer = 1000 / (5 * coincount)
         self.execute_window = 30000
+        self.rebalance_time = 60000
         self.ignore_backlog = 5
         
         #portfolio display
@@ -126,7 +127,7 @@ class BalanceGUI(tk.Frame):
         
         self.automate = tk.IntVar()
         self.automate.set(0)
-        self.automate_check = tk.Checkbutton(self.controls_view, text='Automate', variable=self.automate)
+        self.automate_check = tk.Checkbutton(self.controls_view, text='Automate', variable=self.automate, command=self.automation)
         self.automate_check.grid(row=1, column=4, sticky=tk.E + tk.W)
 
         #Statistics display
@@ -542,7 +543,12 @@ class BalanceGUI(tk.Frame):
                         status = 'Trade Placed'
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
-            
+    def automation(self):
+        if self.automate.get():
+            self.execute_sells()
+            self.execute_buys()
+            self.parent.after(self.rebalance_time, self.automation)
+    
     def execute_sells(self):
         '''
         Perform any sells required by overachieving coins
