@@ -132,26 +132,40 @@ class BalanceGUI(tk.Frame):
         #Statistics display
         self.stats_view = tk.LabelFrame(parent, text='Statistics')
         self.stats_view.grid(row=1, column=1, sticky=tk.E + tk.W + tk.N + tk.S)
+        for i in range(4):
+            self.stats_view.columnconfigure(i,weight=1, uniform='stats')
 
         
-        self.trade_currency_value_label = tk.Label(self.stats_view, text=self.trade_currency + ' Value:')
+        self.trade_currency_value_label = tk.Label(self.stats_view, text=self.trade_currency + ' Value:', relief='ridge')
         self.trade_currency_value_label.grid(row=0, column=0, sticky=tk.E + tk.W)
         self.trade_currency_value_string = tk.StringVar()
         self.trade_currency_value_string.set('0')
         self.trade_currency_value = tk.Label(self.stats_view, textvariable=self.trade_currency_value_string)
         self.trade_currency_value.grid(row=0, column=1, sticky=tk.E + tk.W)
 
-        self.imbalance_label = tk.Label(self.stats_view, text='Imbalance:')
+        self.imbalance_label = tk.Label(self.stats_view, text='Imbalance:', relief='ridge')
         self.imbalance_label.grid(row=1, column=0, sticky=tk.E + tk.W)
         self.imbalance_string = tk.StringVar()
         self.imbalance_string.set('0%')
         self.imbalance_value = tk.Label(self.stats_view, textvariable=self.imbalance_string)
         self.imbalance_value.grid(row=1, column=1, sticky=tk.E + tk.W)
 
+
+        self.messages_queued_label = tk.Label(self.stats_view, text='Status', relief='ridge')
+        self.messages_queued_label.grid(row=0, column=2, sticky=tk.E + tk.W)
+        
         self.messages_string = tk.StringVar()
         self.messages_string.set('Up to Date')
         self.messages_queued = tk.Label(self.stats_view, textvariable=self.messages_string)
-        self.messages_queued.grid(row=0, column=2, sticky=tk.E + tk.W)
+        self.messages_queued.grid(row=0, column=3, sticky=tk.E + tk.W)
+
+        
+        self.trades_label = tk.Label(self.stats_view, text='Trades Placed:', relief='ridge')
+        self.trades_label.grid(row=1, column=2, sticky=tk.E + tk.W)
+        self.trades_count = tk.IntVar()
+        self.trades_count.set(0)
+        self.trades_count_display = tk.Label(self.stats_view, textvariable=self.trades_count)
+        self.trades_count_display.grid(row=1, column=3, sticky=tk.E + tk.W)
 
     def on_closing(self):
         ''' Check that all trades have executed
@@ -431,7 +445,6 @@ class BalanceGUI(tk.Frame):
         '''
         Calcuate required trades and update the main GUI
         '''
-        trade = False
         for row in self.coins.itertuples():
             tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
             tradecoin_locked = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['locked_balance'].values)
@@ -467,12 +480,8 @@ class BalanceGUI(tk.Frame):
                 status = 'Insufficient ' + self.trade_coin + ' for purchase'
             else:
                 status = 'Trade Ready'
-                trade = True
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
-        if trade and self.automate.get():
-            self.execute_transactions(side=SIDE_SELL, dryrun=False)
-            self.execute_transactions(side=SIDE_BUY, dryrun=False)
             
     def execute_transactions(self, side, dryrun):
         '''
@@ -529,6 +538,7 @@ class BalanceGUI(tk.Frame):
                     status = 'Trade Ready'
                     if not dryrun:
                         self.trades_placed += 1
+                        self.trades_count.set(self.trades_placed)
                         status = 'Trade Placed'
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
