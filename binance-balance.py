@@ -123,10 +123,11 @@ class BalanceGUI(tk.Frame):
                                     state='disabled')
         self.buy_button.grid(row=1, column=3, sticky=tk.E + tk.W)
 
-        self.messages_string = tk.StringVar()
-        self.messages_string.set('Up to Date')
-        self.messages_queued = tk.Label(self.controls_view, textvariable=self.messages_string)
-        self.messages_queued.grid(row=1, column=4, sticky=tk.E + tk.W)
+        
+        self.automate = tk.IntVar()
+        self.automate.set(0)
+        self.automate_check = tk.Checkbutton(self.controls_view, text='Automate', variable=self.automate)
+        self.automate_check.grid(row=1, column=4, sticky=tk.E + tk.W)
 
         #Statistics display
         self.stats_view = tk.LabelFrame(parent, text='Statistics')
@@ -146,6 +147,11 @@ class BalanceGUI(tk.Frame):
         self.imbalance_string.set('0%')
         self.imbalance_value = tk.Label(self.stats_view, textvariable=self.imbalance_string)
         self.imbalance_value.grid(row=1, column=1, sticky=tk.E + tk.W)
+
+        self.messages_string = tk.StringVar()
+        self.messages_string.set('Up to Date')
+        self.messages_queued = tk.Label(self.stats_view, textvariable=self.messages_string)
+        self.messages_queued.grid(row=0, column=2, sticky=tk.E + tk.W)
 
     def on_closing(self):
         ''' Check that all trades have executed
@@ -425,6 +431,7 @@ class BalanceGUI(tk.Frame):
         '''
         Calcuate required trades and update the main GUI
         '''
+        trade = False
         for row in self.coins.itertuples():
             tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
             tradecoin_locked = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['locked_balance'].values)
@@ -460,8 +467,12 @@ class BalanceGUI(tk.Frame):
                 status = 'Insufficient ' + self.trade_coin + ' for purchase'
             else:
                 status = 'Trade Ready'
+                trade = True
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
+        if trade and self.automate.get():
+            self.execute_transactions(side=SIDE_SELL, dryrun=False)
+            self.execute_transactions(side=SIDE_BUY, dryrun=False)
             
     def execute_transactions(self, side, dryrun):
         '''
