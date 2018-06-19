@@ -382,6 +382,7 @@ class BalanceGUI(tk.Frame):
             self.portfolio.set(coin, column='Status', value = 'In Progress: {0:.2f}%'.format(percent))
         else:
             self.trades_completed += 1
+            self.trades_count.set(self.trades_completed)
             self.portfolio.set(coin, column='Status', value = 'Completed')
         self.trades.append(savemsg)    
 
@@ -538,7 +539,6 @@ class BalanceGUI(tk.Frame):
                     status = 'Trade Ready'
                     if not dryrun:
                         self.trades_placed += 1
-                        self.trades_count.set(self.trades_placed)
                         status = 'Trade Placed'
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
