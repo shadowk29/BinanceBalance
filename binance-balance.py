@@ -317,7 +317,7 @@ class BalanceGUI(tk.Frame):
                                           round_decimal(row.price, row.ticksize),
                                           round_decimal(row.price, row.ticksize),
                                           '',
-                                          'Waiting'
+                                          ''
                                           )
                                   )
             i += 1
@@ -448,6 +448,7 @@ class BalanceGUI(tk.Frame):
         Calcuate required trades and update the main GUI
         '''
         for row in self.coins.itertuples():
+            update = False
             tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
             tradecoin_locked = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['locked_balance'].values)
             tradecoin_free = tradecoin_balance - tradecoin_locked
@@ -482,7 +483,9 @@ class BalanceGUI(tk.Frame):
                 status = 'Insufficient ' + self.trade_coin + ' for purchase'
             else:
                 status = 'Trade Ready'
-            self.portfolio.set(coin, column='Status', value=status)
+                update = True
+            if update:
+                self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
             
     def execute_transactions(self, side, dryrun):
