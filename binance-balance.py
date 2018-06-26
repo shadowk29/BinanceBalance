@@ -384,14 +384,14 @@ class BalanceGUI(tk.Frame):
         ''' Update balances whenever a partial execution occurs '''
         coin = msg['s'][:-len(self.trade_coin)]
         savemsg = {self.headers[key] : value for key, value in msg.items()}
-        percent = np.round(100.0*float(savemsg['cumulative_filled_quantity']) / float(savemsg['order_quantity']))
-        if percent < 100:
-            self.portfolio.set(coin, column='Event', value = '{0}% Complete {1}'.format(percent,datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        else:
+        filled = float(savemsg['cumulative_filled_quantity'])
+        orderqty = float(savemsg['order_quantity'])
+        side = savemsg['side']
+        if filled >= orderqty:
             self.coins.loc[self.coins['coin'] == coin, 'last_execution'] = time.mktime(datetime.now().timetuple())
             self.trades_completed += 1
             self.trades_count.set(self.trades_completed)
-            self.portfolio.set(coin, column='Event', value = 'Completed {0}'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+        self.portfolio.set(coin, column='Event', value = '{0} {1}/{2} {3}'.format(side, filled, orderqty,datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         self.trades.append(savemsg)    
 
     def update_balance(self, msg):
