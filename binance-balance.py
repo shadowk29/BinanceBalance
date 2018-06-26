@@ -384,9 +384,9 @@ class BalanceGUI(tk.Frame):
         ''' Update balances whenever a partial execution occurs '''
         coin = msg['s'][:-len(self.trade_coin)]
         savemsg = {self.headers[key] : value for key, value in msg.items()}
-        percent = 100.0*float(savemsg['cumulative_filled_quantity']) / float(savemsg['order_quantity'])
-        if percent < 100.0:
-            self.portfolio.set(coin, column='Event', value = 'In Progress: {0:.2f}%'.format(percent))
+        percent = np.round(100.0*float(savemsg['cumulative_filled_quantity']) / float(savemsg['order_quantity']))
+        if percent < 100:
+            self.portfolio.set(coin, column='Event', value = 'In Progress: {0}%'.format(percent))
         else:
             self.coins.loc[self.coins['coin'] == coin, 'last_execution'] = time.mktime(datetime.now().timetuple())
             self.trades_completed += 1
@@ -533,7 +533,7 @@ class BalanceGUI(tk.Frame):
                 status = 'Trade quantity too large'
             elif side == SIDE_BUY and qty * price > tradecoin_free:
                 status = 'Insufficient ' + self.trade_coin + ' for purchase'
-            elif last_placement == None or last_execution > last_placement:
+            elif last_placement == None or last_execution >= last_placement:
                 trade_type = self.ordertype.get()
                 trade_currency = self.trade_coin
                 try:
