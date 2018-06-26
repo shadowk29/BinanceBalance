@@ -386,7 +386,7 @@ class BalanceGUI(tk.Frame):
         savemsg = {self.headers[key] : value for key, value in msg.items()}
         percent = np.round(100.0*float(savemsg['cumulative_filled_quantity']) / float(savemsg['order_quantity']))
         if percent < 100:
-            self.portfolio.set(coin, column='Event', value = 'In Progress: {0}%'.format(percent))
+            self.portfolio.set(coin, column='Event', value = '{0}% Complete {1}'.format(percent,datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         else:
             self.coins.loc[self.coins['coin'] == coin, 'last_execution'] = time.mktime(datetime.now().timetuple())
             self.trades_completed += 1
