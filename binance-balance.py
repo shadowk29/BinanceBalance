@@ -8,6 +8,7 @@ from binance.enums import *
 from binance.exceptions import *
 import numpy as np
 from datetime import datetime
+import time
 from tkinter import messagebox
 import Queue
 from twisted.internet import reactor
@@ -63,10 +64,11 @@ class BalanceGUI(tk.Frame):
                                    'Bid',
                                    'Ask',
                                    'Action',
-                                   'Status'
+                                   'Status',
+                                   'Event'
                                    )
         for label in self.portfolio['columns']:
-            if label == 'Status':
+            if label == 'Status' or label == 'Event':
                 self.portfolio.column(label, width=200)
             elif label == 'Action':
                 self.portfolio.column(label, width=120)
@@ -276,7 +278,9 @@ class BalanceGUI(tk.Frame):
                        'symbol':            pair,
                        'askprice' :         price,
                        'bidprice':          price,
-                       'price':             price
+                       'price':             price,
+                       'last_placement':    None,
+                       'last_execution':    None
                        }
             else:
                 fixed_balance = self.coins.loc[self.coins['coin'] == coin]['fixed_balance']
@@ -293,7 +297,9 @@ class BalanceGUI(tk.Frame):
                        'symbol':            coin+coin,
                        'askprice' :         1.0,
                        'bidprice':          1.0,
-                       'price':             1.0
+                       'price':             1.0,
+                       'last_placement':    None,
+                       'last_execution':    None
                        }
             exchange_coins.append(row)
         exchange_coins = pd.DataFrame(exchange_coins)
@@ -380,11 +386,12 @@ class BalanceGUI(tk.Frame):
         savemsg = {self.headers[key] : value for key, value in msg.items()}
         percent = 100.0*float(savemsg['cumulative_filled_quantity']) / float(savemsg['order_quantity'])
         if percent < 100.0:
-            self.portfolio.set(coin, column='Status', value = 'In Progress: {0:.2f}%'.format(percent))
+            self.portfolio.set(coin, column='Event', value = 'In Progress: {0:.2f}%'.format(percent))
         else:
+            self.coins.loc[self.coins['coin'] == coin, 'last_execution'] = time.mktime(datetime.now().timetuple())
             self.trades_completed += 1
             self.trades_count.set(self.trades_completed)
-            self.portfolio.set(coin, column='Status', value = 'Completed')
+            self.portfolio.set(coin, column='Event', value = 'Completed {0}'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         self.trades.append(savemsg)    
 
     def update_balance(self, msg):
@@ -499,7 +506,6 @@ class BalanceGUI(tk.Frame):
             tradecoin_locked = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['locked_balance'].values)
             tradecoin_free = tradecoin_balance - tradecoin_locked
             dif = (row.allocation - row.actual) / 100.0 * self.total / row.price
-
             if dif < 0 and side == SIDE_BUY:
                 continue
             if dif > 0 and side == SIDE_SELL:
@@ -511,6 +517,8 @@ class BalanceGUI(tk.Frame):
             actual = row.actual
             qty = np.absolute(dif)
             action = '{0} {1}'.format(side, round_decimal(qty, row.stepsize))
+            last_placement = np.squeeze(self.coins[self.coins['coin'] == coin]['last_placement'].values)
+            last_execution = np.squeeze(self.coins[self.coins['coin'] == coin]['last_execution'].values)            
             if side == SIDE_SELL:
                 price = row.bidprice
             if side == SIDE_BUY:
@@ -525,7 +533,7 @@ class BalanceGUI(tk.Frame):
                 status = 'Trade quantity too large'
             elif side == SIDE_BUY and qty * price > tradecoin_free:
                 status = 'Insufficient ' + self.trade_coin + ' for purchase'
-            else:
+            elif last_placement == None or last_execution > last_placement:
                 trade_type = self.ordertype.get()
                 trade_currency = self.trade_coin
                 try:
@@ -546,6 +554,7 @@ class BalanceGUI(tk.Frame):
                         status = 'Trade Placed'
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
+            
     def automation(self):
         if self.automate.get():
             self.execute_sells()
@@ -616,6 +625,7 @@ class BalanceGUI(tk.Frame):
                                                  side=side,
                                                  type=ORDER_TYPE_MARKET,
                                                  quantity=round_decimal(quantity, stepsize))
+        self.coins.loc[self.coins['coin'] == coin, 'last_placement'] = time.mktime(datetime.now().timetuple())
             
     def column_headers(self):
         ''' define human readable aliases for the headers in trade execution reports. '''
