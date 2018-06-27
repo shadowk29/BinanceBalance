@@ -63,10 +63,6 @@ class BalanceGUI(tk.Frame):
             self.display_error('Config Error', '{0} is not a supported trade type. Use MARKET or LIMIT'.format(trade_type), quit_on_exit=True)
 
         self.ignore_backlog = int(config.get('websockets', 'ignore_backlog'))
-        speedfactor = int(config.get('websockets', 'msg_process_speed'))
-        if speedfactor < 3:
-            self.display_error('Config Error', 'The app will have trouble staying updated with speedfactor < 3', quit_on_exit=True)
-        self.timer = s_to_ms / (speedfactor * coincount)
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
         self.portfolio_view.grid(row=0, column=0, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
@@ -241,7 +237,7 @@ class BalanceGUI(tk.Frame):
         for symbol in symbols:
             self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
         self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
-        self.parent.after(self.timer, self.process_queue)
+        self.parent.after_idle(self.process_queue)
 
     def populate_portfolio(self):
         '''
@@ -419,7 +415,7 @@ class BalanceGUI(tk.Frame):
                 self.get_msg()
         else:
             self.get_msg()
-            self.master.after(self.timer, self.process_queue)
+            self.master.after_idle(self.process_queue)
         n = self.queue.qsize()
         if n > self.ignore_backlog:
             self.messages_string.set('{0} Updates Queued'.format(n))
