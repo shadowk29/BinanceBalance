@@ -596,8 +596,10 @@ class BalanceGUI(tk.Frame):
                     if not dryrun:
                         self.trades_placed += 1
                         status = 'Trade Placed'
+                        self.portfolio.set(coin, column='Event', value='Trade Placed')
             self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
+            
             
     def automation(self):
         if self.automate.get():
