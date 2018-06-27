@@ -57,7 +57,7 @@ class BalanceGUI(tk.Frame):
         self.rebalance_time = int(config.get('trades', 'rebalance_period')) * s_to_ms
         if self.rebalance_time <= 0:
             self.display_error('Config Error', 'Rebalance period must be a positive integer (seconds)', quit_on_exit=True)
-        self.timer = s_to_ms / (speedfactor * coincount)
+        
         trade_type = config.get('trades', 'trade_type')
         if trade_type != 'MARKET' and trade_type != 'LIMIT':
             self.display_error('Config Error', '{0} is not a supported trade type. Use MARKET or LIMIT'.format(trade_type), quit_on_exit=True)
@@ -66,7 +66,7 @@ class BalanceGUI(tk.Frame):
         speedfactor = int(config.get('websockets', 'msg_process_speed'))
         if speedfactor < 3:
             self.display_error('Config Error', 'The app will have trouble staying updated with speedfactor < 3', quit_on_exit=True)
-        
+        self.timer = s_to_ms / (speedfactor * coincount)
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
         self.portfolio_view.grid(row=0, column=0, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
@@ -92,60 +92,31 @@ class BalanceGUI(tk.Frame):
             self.portfolio.heading(label, text=label)
         self.portfolio.grid(row=0,column=0)
 
+        for i in range(2):
+            self.parent.columnconfigure(i,weight=1, uniform='parent')
+            
         #options display
         self.controls_view = tk.LabelFrame(parent, text='Controls')
-        for i in range(5):
+        for i in range(4):
             self.controls_view.columnconfigure(i,weight=1, uniform='controls')
         self.controls_view.grid(row=1, column=0, sticky=tk.E + tk.W + tk.N + tk.S)
         
-        key_label = tk.Label(self.controls_view, text='API Key', relief='ridge')
-        key_label.grid(row=0, column=0,sticky=tk.E + tk.W)
+        self.key_label = tk.Label(self.controls_view, text='API Key', relief='ridge')
+        self.key_label.grid(row=0, column=0,sticky=tk.E + tk.W)
         
-        secret_label = tk.Label(self.controls_view, text='API Secret', relief='ridge')
-        secret_label.grid(row=0, column=2,sticky=tk.E + tk.W)
+        self.secret_label = tk.Label(self.controls_view, text='API Secret', relief='ridge')
+        self.secret_label.grid(row=1, column=0,sticky=tk.E + tk.W)
         
         self.key_entry = tk.Entry(self.controls_view, show='*')
-        self.key_entry.grid(row=0, column=1,sticky=tk.E + tk.W)
+        self.key_entry.grid(row=0, column=1, columnspan=2,sticky=tk.E + tk.W)
         
         self.secret_entry = tk.Entry(self.controls_view, show='*')
-        self.secret_entry.grid(row=0, column=3,sticky=tk.E + tk.W)
+        self.secret_entry.grid(row=1, column=1, columnspan=2, sticky=tk.E + tk.W)
         
         self.login = tk.Button(self.controls_view,
                                text='Login',
                                command = self.api_enter)
-        self.login.grid(row=0, column=4, sticky=tk.E + tk.W)
-        
-        self.ordertype = tk.StringVar()
-        self.ordertype.set(trade_type)
-        self.orderopt = tk.OptionMenu(self.controls_view,
-                                      self.ordertype,
-                                      'MARKET', 'LIMIT')
-        self.orderopt.grid(row=1, column=0, stick=tk.E + tk.W)
-        self.orderopt['state'] = 'disabled'
-        
-        self.dryrun_button = tk.Button(self.controls_view,
-                                       text='Dry Run',
-                                       command=self.dryrun,
-                                       state='disabled')
-        self.dryrun_button.grid(row=1, column=1, sticky=tk.E + tk.W)
-        
-        self.sell_button = tk.Button(self.controls_view,
-                                     text='Execute Sells',
-                                     command=self.execute_sells,
-                                     state='disabled')
-        self.sell_button.grid(row=1, column=2, sticky=tk.E + tk.W)
-        
-        self.buy_button = tk.Button(self.controls_view,
-                                    text='Execute Buys',
-                                    command=self.execute_buys,
-                                    state='disabled')
-        self.buy_button.grid(row=1, column=3, sticky=tk.E + tk.W)
-
-        
-        self.automate = tk.IntVar()
-        self.automate.set(0)
-        self.automate_check = tk.Checkbutton(self.controls_view, text='Automate', variable=self.automate, command=self.automation)
-        self.automate_check.grid(row=1, column=4, sticky=tk.E + tk.W)
+        self.login.grid(row=0, column=3, rowspan=2, sticky=tk.E + tk.W + tk.N+tk.S)
 
         #Statistics display
         self.stats_view = tk.LabelFrame(parent, text='Statistics')
@@ -247,17 +218,13 @@ class BalanceGUI(tk.Frame):
         try:
             self.client = Client(api_key, api_secret)
             status = self.client.get_system_status()
-            self.populate_portfolio()
         except (BinanceRequestException,
                 BinanceAPIException) as e:
             self.display_error('Login Error', 'Error {0}: {1}'.format(e.status_code, e.message))
         else:
-            self.key_entry['state'] = 'disabled'
-            self.secret_entry['state'] = 'disabled'
-            self.login['state'] = 'disabled'
-            self.dryrun_button['state'] = 'normal'
-            self.orderopt['state'] = 'normal'
+            self.populate_portfolio()
             self.start_websockets()
+            
             
     def start_websockets(self):
         '''
@@ -287,22 +254,30 @@ class BalanceGUI(tk.Frame):
         trade_currency = self.trade_currency
         self.trade_coin = trade_currency
 
-        popup = tk.Toplevel()
-        popup.title('Initializing Portfolio')
+
+        #update the GUI context
+        self.key_label.destroy()
+        self.key_entry.destroy()
+        self.secret_label.destroy()
+        self.secret_entry.destroy()
+        self.login.destroy()
+        
         updatetext = tk.StringVar()
         updatetext.set('Initializing')
-        tk.Label(popup, textvariable=updatetext).grid(row=0,column=0)
+        self.progresslabel = tk.Label(self.controls_view, textvariable=updatetext)
+        self.progresslabel.grid(row=1, column=0, columnspan=4, sticky=tk.E + tk.W)
         progress_var = tk.DoubleVar()
         progress = 0
         progress_var.set(progress)
-        progress_bar = ttk.Progressbar(popup, variable=progress_var, maximum=len(self.coins))
-        progress_bar.grid(row=1, column=0)
+        self.progressbar = ttk.Progressbar(self.controls_view, variable=progress_var, maximum=len(self.coins))
+        self.progressbar.grid(row=0, column=0, columnspan=4, sticky=tk.E + tk.W)
 
         for coin in self.coins['coin']:
-            popup.update()
+            self.progressbar.update()
             progress += 1
             progress_var.set(progress)
-            updatetext.set('Processing {0}'.format(coin))
+            updatetext.set('Fetching {0} account information'.format(coin))
+            self.progresslabel.update()
             pair = coin+trade_currency
             balance = self.client.get_asset_balance(asset=coin)
             if coin != trade_currency:
@@ -345,7 +320,6 @@ class BalanceGUI(tk.Frame):
                        'last_execution':    None
                        }
             exchange_coins.append(row)
-        popup.destroy()
         exchange_coins = pd.DataFrame(exchange_coins)
         self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
         self.coins['value'] = self.coins.apply(lambda row: row.price * (row.exchange_balance +
@@ -371,6 +345,34 @@ class BalanceGUI(tk.Frame):
                                           )
                                   )
             i += 1
+        updatetext.set('Testing connection'.format(coin))
+        self.dryrun()
+        self.progressbar.destroy()
+        self.progresslabel.destroy()
+
+        self.automate=tk.BooleanVar()
+        self.automate.set(False)
+        self.automate_text = tk.StringVar()
+        self.automate_text.set('Start Automation')
+        self.toggle_automate = tk.Button(self.controls_view,
+                                         textvariable=self.automate_text,
+                                         command=lambda: self.automation(toggle=True))
+        self.toggle_automate.grid(row=0, column=0, rowspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
+
+        self.toggle_automate = tk.Button(self.controls_view,
+                                         text='Start Automation',
+                                         command=lambda: self.automation(toggle=True))
+        self.toggle_automate.grid(row=0, column=0, columnspan=2, rowspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
+
+        self.sell_button = tk.Button(self.controls_view,
+                                     text='Execute Sells',
+                                     command=self.execute_sells)
+        self.sell_button.grid(row=0, column=2, columnspan=2, sticky=tk.E + tk.W)
+        
+        self.buy_button = tk.Button(self.controls_view,
+                                    text='Execute Buys',
+                                    command=self.execute_buys)
+        self.buy_button.grid(row=1, column=2, columnspan=2, sticky=tk.E + tk.W)
         
     def update_status(self):
         '''Update the statistics frame whenever a change occurs in balance or price'''
@@ -601,7 +603,13 @@ class BalanceGUI(tk.Frame):
             self.portfolio.set(coin, column='Action', value=action)
             
             
-    def automation(self):
+    def automation(self, toggle=False):
+        if toggle:
+            if self.automate.get():
+                self.automate_text.set('Stop Automation')
+            else:
+                self.automate_text.set('Start Automation')
+            self.automate.set(not self.automate.get())
         if self.automate.get():
             self.execute_sells()
             self.execute_buys()
@@ -611,33 +619,20 @@ class BalanceGUI(tk.Frame):
         '''
         Perform any sells required by overachieving coins
         '''
-        self.sell_button['state'] = 'disabled'
         self.execute_transactions(side=SIDE_SELL, dryrun=False)
 
     def execute_buys(self):
         '''
         Perform any buys required by underachieving coins
         '''
-        self.buy_button['state'] = 'disabled'
         self.execute_transactions(side=SIDE_BUY, dryrun=False)
 
     def dryrun(self):
         '''
         perform a dry run to list what trades are required
         '''
-        self.sell_button['state'] = 'normal'
-        self.buy_button['state'] = 'normal'
         self.execute_transactions(side=SIDE_SELL, dryrun=True)
-        self.execute_transactions(side=SIDE_BUY, dryrun=True)
-        self.parent.after(self.execute_window, self.disable_buttons)
-
-    def disable_buttons(self):
-        '''
-        Disable buy and sell buttons on a timer
-        '''
-        self.sell_button['state'] = 'disabled'
-        self.buy_button['state'] = 'disabled'
-        
+        self.execute_transactions(side=SIDE_BUY, dryrun=True)        
         
     def place_order(self, coin, pair, trade_type,
                     quantity, price, side, dryrun,
@@ -671,7 +666,8 @@ class BalanceGUI(tk.Frame):
                                                  side=side,
                                                  type=ORDER_TYPE_MARKET,
                                                  quantity=round_decimal(quantity, stepsize))
-        self.coins.loc[self.coins['coin'] == coin, 'last_placement'] = time.mktime(datetime.now().timetuple())
+        if not dryrun:
+            self.coins.loc[self.coins['coin'] == coin, 'last_placement'] = time.mktime(datetime.now().timetuple())
             
     def column_headers(self):
         ''' define human readable aliases for the headers in trade execution reports. '''
