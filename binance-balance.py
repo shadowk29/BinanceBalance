@@ -288,7 +288,23 @@ class BalanceGUI(tk.Frame):
         exchange_coins = []
         trade_currency = self.trade_currency
         self.trade_coin = trade_currency
+
+        popup = tk.Toplevel()
+        popup.title('Initializing Portfolio')
+        updatetext = tk.StringVar()
+        updatetext.set('Initializing')
+        tk.Label(popup, textvariable=updatetext).grid(row=0,column=0)
+        progress_var = tk.DoubleVar()
+        progress = 0
+        progress_var.set(progress)
+        progress_bar = ttk.Progressbar(popup, variable=progress_var, maximum=len(self.coins))
+        progress_bar.grid(row=1, column=0)
+
         for coin in self.coins['coin']:
+            popup.update()
+            progress += 1
+            progress_var.set(progress)
+            updatetext.set('Processing {0}'.format(coin))
             pair = coin+trade_currency
             balance = self.client.get_asset_balance(asset=coin)
             if coin != trade_currency:
@@ -331,6 +347,7 @@ class BalanceGUI(tk.Frame):
                        'last_execution':    None
                        }
             exchange_coins.append(row)
+        popup.destroy()
         exchange_coins = pd.DataFrame(exchange_coins)
         self.coins = pd.merge(self.coins, exchange_coins, on='coin', how='outer')
         self.coins['value'] = self.coins.apply(lambda row: row.price * (row.exchange_balance +
