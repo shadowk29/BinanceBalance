@@ -707,13 +707,13 @@ class BalanceGUI(tk.Frame):
                 'M': 'ignore_3'}
  
 def main():
-    root = tk.Tk()
-    root.withdraw()
     portfolio = 'allocation.csv'
     coins = pd.read_csv(portfolio)
     if not np.sum(coins['allocation']) == 100:
         messagebox.showinfo('Bad Configuration','Your coin allocations to not sum to 100%')
     else:
+        root = tk.Tk()
+        root.withdraw()
         BalanceGUI(root, coins).grid(row=0, column=0)
         root.wm_title('BinanceBalance')
         root.mainloop()
