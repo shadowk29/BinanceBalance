@@ -51,26 +51,24 @@ class BalanceGUI(tk.Frame):
         
         config = ConfigParser.RawConfigParser(allow_no_value=False)
         config.read('config.ini')
-        self.trade_currency = config.get('binance_balance', 'trade_currency')
+        self.trade_currency = config.get('trades', 'trade_currency')
         if self.trade_currency != 'BTC':
             self.display_error('Config Error', '{0} trading pairs are not supported yet, only BTC'.format(self.trade_currency), quit_on_exit=True)
-        self.rebalance_time = int(config.get('binance_balance', 'rebalance_period')) * s_to_ms
+        self.rebalance_time = int(config.get('trades', 'rebalance_period')) * s_to_ms
         if self.rebalance_time <= 0:
             self.display_error('Config Error', 'Rebalance period must be a positive integer (seconds)', quit_on_exit=True)
-        self.ignore_backlog = int(config.get('binance_balance', 'ignore_backlog'))
-        speedfactor = int(config.get('binance_balance', 'msg_process_speed'))
-        if speedfactor < 3:
-            self.display_error('Config Error', 'The app will have trouble staying updated with speedfactor < 3', quit_on_exit=True)
         self.timer = s_to_ms / (speedfactor * coincount)
-        trade_type = config.get('binance_balance', 'trade_type')
+        trade_type = config.get('trades', 'trade_type')
         if trade_type != 'MARKET' and trade_type != 'LIMIT':
             self.display_error('Config Error', '{0} is not a supported trade type. Use MARKET or LIMIT'.format(trade_type), quit_on_exit=True)
-        
+
+        self.ignore_backlog = int(config.get('websockets', 'ignore_backlog'))
+        speedfactor = int(config.get('websockets', 'msg_process_speed'))
+        if speedfactor < 3:
+            self.display_error('Config Error', 'The app will have trouble staying updated with speedfactor < 3', quit_on_exit=True)
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
-        
-        
         self.portfolio_view.grid(row=0, column=0, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
         self.portfolio = ttk.Treeview(self.portfolio_view, height = len(self.coins), selectmode = 'extended')
         self.portfolio['columns']=('Stored',
