@@ -13,6 +13,7 @@ from tkinter import messagebox
 import Queue
 from twisted.internet import reactor
 import os.path
+import ConfigParser
 
 
 def round_decimal(num, decimal):
@@ -31,7 +32,7 @@ def round_decimal(num, decimal):
 
 class BalanceGUI(tk.Frame):
     def __init__(self, parent, coins):
-        ''' Initialize all GUI widgets '''
+        ''' Initialize the GUI and read the config file '''
         tk.Frame.__init__(self, parent)
         parent.protocol('WM_DELETE_WINDOW', self.on_closing)
         self.parent = parent
@@ -41,14 +42,30 @@ class BalanceGUI(tk.Frame):
         self.queue = Queue.Queue()
         self.trades_placed = 0
         self.trades_completed = 0
-        self.trade_currency = 'BTC'
         self.trades = []
         self.headers = self.column_headers()
         coincount = len(coins)
-        self.timer = 1000 / (5 * coincount)
+        s_to_ms = 1000
         self.execute_window = 30000
-        self.rebalance_time = 60000
-        self.ignore_backlog = 5
+        
+        
+        config = ConfigParser.RawConfigParser(allow_no_value=False)
+        config.read('config.ini')
+        self.trade_currency = config.get('binance_balance', 'trade_currency')
+        if self.trade_currency != 'BTC':
+            self.display_error('Config Error', '{0} trading pairs are not supported yet, only BTC'.format(self.trade_currency), quit_on_exit=True)
+        self.rebalance_time = int(config.get('binance_balance', 'rebalance_period')) * s_to_ms
+        if self.rebalance_time <= 0:
+            self.display_error('Config Error', 'Rebalance period must be a positive integer (seconds)', quit_on_exit=True)
+        self.ignore_backlog = int(config.get('binance_balance', 'ignore_backlog'))
+        speedfactor = int(config.get('binance_balance', 'msg_process_speed'))
+        if speedfactor < 3:
+            self.display_error('Config Error', 'The app will have trouble staying updated with speedfactor < 3', quit_on_exit=True)
+        self.timer = s_to_ms / (speedfactor * coincount)
+        trade_type = config.get('binance_balance', 'trade_type')
+        if trade_type != 'MARKET' and trade_type != 'LIMIT':
+            self.display_error('Config Error', '{0} is not a supported trade type. Use MARKET or LIMIT'.format(trade_type), quit_on_exit=True)
+        
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -101,10 +118,10 @@ class BalanceGUI(tk.Frame):
         self.login.grid(row=0, column=4, sticky=tk.E + tk.W)
         
         self.ordertype = tk.StringVar()
-        self.ordertype.set('Market-Limit')
+        self.ordertype.set(trade_type)
         self.orderopt = tk.OptionMenu(self.controls_view,
                                       self.ordertype,
-                                      'Market', 'Market-Limit')
+                                      'MARKET', 'LIMIT')
         self.orderopt.grid(row=1, column=0, stick=tk.E + tk.W)
         self.orderopt['state'] = 'disabled'
         
@@ -201,6 +218,23 @@ class BalanceGUI(tk.Frame):
         else:
             self.parent.destroy()
 
+    def exit_error(self):
+        if self.quit_on_exit:
+            self.top.destroy()
+            self.save_and_quit()
+        else:
+            self.top.destroy()
+
+    def display_error(self, title, error, quit_on_exit=False):
+        self.quit_on_exit = quit_on_exit
+        self.top = tk.Toplevel()
+        self.top.title('Login Error')
+        msg = tk.Message(self.top, text=error)
+        msg.grid(row=0, column=0)
+        button = tk.Button(self.top, text="Dismiss", command=self.exit_error)
+        button.grid(row=1, column=0)
+        self.top.attributes('-topmost', 'true')
+            
     def api_enter(self):
         '''
         Log in to Binance with the provided credentials,
@@ -218,12 +252,7 @@ class BalanceGUI(tk.Frame):
             self.populate_portfolio()
         except (BinanceRequestException,
                 BinanceAPIException) as e:
-            top = tk.Toplevel()
-            top.title('Login Error')
-            msg = tk.Message(top, text='Error {0}: {1}'.format(e.status_code, e.message))
-            msg.grid(row=0, column=0)
-            button = tk.Button(top, text="Dismiss", command=top.destroy)
-            button.grid(row=1, column=0)
+            self.display_error('Login Error', 'Error {0}: {1}'.format(e.status_code, e.message))
         else:
             self.key_entry['state'] = 'disabled'
             self.secret_entry['state'] = 'disabled'
@@ -599,7 +628,7 @@ class BalanceGUI(tk.Frame):
         '''
         Format and place an order using the Binance API
         '''
-        if trade_type == 'Market-Limit':
+        if trade_type == 'LIMIT':
             if dryrun:
                 order = self.client.create_test_order(symbol=pair,
                                                       side=side,
@@ -614,7 +643,7 @@ class BalanceGUI(tk.Frame):
                                                  timeInForce=TIME_IN_FORCE_GTC,
                                                  quantity=round_decimal(quantity, stepsize),
                                                  price=round_decimal(price, ticksize))
-        elif trade_type == 'Market':
+        elif trade_type == 'MARKET':
             if dryrun:
                 order = self.client.create_test_order(symbol=pair,
                                                       side=side,
