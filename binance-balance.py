@@ -46,8 +46,6 @@ class BalanceGUI(tk.Frame):
         self.headers = self.column_headers()
         coincount = len(coins)
         s_to_ms = 1000
-        self.execute_window = 30000
-        
         
         config = ConfigParser.RawConfigParser(allow_no_value=False)
         config.read('config.ini')
