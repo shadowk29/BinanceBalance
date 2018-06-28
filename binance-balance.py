@@ -44,25 +44,8 @@ class BalanceGUI(tk.Frame):
         self.trades_completed = 0
         self.trades = []
         self.headers = self.column_headers()
-        coincount = len(coins)
-        s_to_ms = 1000
+        self.read_config()
         
-        config = ConfigParser.RawConfigParser(allow_no_value=False)
-        config.read('config.ini')
-        self.trade_currency = config.get('trades', 'trade_currency')
-        if self.trade_currency != 'BTC':
-            self.display_error('Config Error', '{0} trading pairs are not supported yet, only BTC'.format(self.trade_currency), quit_on_exit=True)
-        self.rebalance_time = int(config.get('trades', 'rebalance_period')) * s_to_ms
-        if self.rebalance_time <= 0:
-            self.display_error('Config Error', 'Rebalance period must be a positive integer (seconds)', quit_on_exit=True)
-        self.min_trade_value = float(config.get('trades', 'min_trade_value'))
-        if self.min_trade_value <= 0:
-            self.min_trade_value = None
-        trade_type = config.get('trades', 'trade_type')
-        if trade_type != 'MARKET' and trade_type != 'LIMIT':
-            self.display_error('Config Error', '{0} is not a supported trade type. Use MARKET or LIMIT'.format(trade_type), quit_on_exit=True)
-
-        self.ignore_backlog = int(config.get('websockets', 'ignore_backlog'))
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
         self.portfolio_view.grid(row=0, column=0, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
@@ -152,6 +135,30 @@ class BalanceGUI(tk.Frame):
         self.trades_count_display = tk.Label(self.stats_view, textvariable=self.trades_count)
         self.trades_count_display.grid(row=1, column=3, sticky=tk.E + tk.W)
 
+    def read_config(self):
+        s_to_ms = 1000
+        config = ConfigParser.RawConfigParser(allow_no_value=False)
+        config.read('config.ini')
+        self.trade_currency = config.get('trades', 'trade_currency')
+        if self.trade_currency != 'BTC':
+            self.display_error('Config Error',
+                               '{0} trading pairs are not supported yet, only BTC'.format(self.trade_currency),
+                               quit_on_exit=True)
+        self.rebalance_time = int(config.get('trades', 'rebalance_period')) * s_to_ms
+        if self.rebalance_time <= 0:
+            self.display_error('Config Error',
+                               'Rebalance period must be a positive integer (seconds)',
+                               quit_on_exit=True)
+        self.min_trade_value = float(config.get('trades', 'min_trade_value'))
+        if self.min_trade_value <= 0:
+            self.min_trade_value = None
+        trade_type = config.get('trades', 'trade_type')
+        if trade_type != 'MARKET' and trade_type != 'LIMIT':
+            self.display_error('Config Error',
+                               '{0} is not a supported trade type. Use MARKET or LIMIT'.format(trade_type),
+                               quit_on_exit=True)
+        self.ignore_backlog = int(config.get('websockets', 'ignore_backlog'))
+        
     def on_closing(self):
         ''' Check that all trades have executed
         before starting the save and exit process
@@ -361,17 +368,14 @@ class BalanceGUI(tk.Frame):
                                          textvariable=self.automate_text,
                                          command=lambda: self.automation(toggle=True))
         self.toggle_automate.grid(row=0, column=0, rowspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
-
         self.toggle_automate = tk.Button(self.controls_view,
                                          text='Start Automation',
                                          command=lambda: self.automation(toggle=True))
         self.toggle_automate.grid(row=0, column=0, columnspan=2, rowspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
-
         self.sell_button = tk.Button(self.controls_view,
                                      text='Execute Sells',
                                      command=self.execute_sells)
         self.sell_button.grid(row=0, column=2, columnspan=2, sticky=tk.E + tk.W)
-        
         self.buy_button = tk.Button(self.controls_view,
                                     text='Execute Buys',
                                     command=self.execute_buys)
