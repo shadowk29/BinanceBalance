@@ -214,7 +214,7 @@ class BalanceGUI(tk.Frame):
             status = self.client.get_system_status()
         except (BinanceRequestException,
                 BinanceAPIException) as e:
-            self.display_error('Login Error', 'Error {0}: {1}'.format(e.status_code, e.message))
+            self.display_error('Login Error', e.message)
         else:
             self.populate_portfolio()
             self.start_websockets()
@@ -273,10 +273,16 @@ class BalanceGUI(tk.Frame):
             updatetext.set('Fetching {0} account information'.format(coin))
             self.progresslabel.update()
             pair = coin+trade_currency
-            balance = self.client.get_asset_balance(asset=coin)
+            try:
+                balance = self.client.get_asset_balance(asset=coin)
+            except BinanceAPIException as e:
+               self.display_error('API Error', e.message, quit_on_exit=True) 
             if coin != trade_currency:
-                price = float(self.client.get_symbol_ticker(symbol=pair)['price'])
-                symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
+                try:
+                    price = float(self.client.get_symbol_ticker(symbol=pair)['price'])
+                    symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
+                except BinanceAPIException as e:
+                    self.display_error('API Error', e.message, quit_on_exit=True)
                 row = {'coin':              coin,
                        'exchange_balance':  float(balance['free']),
                        'locked_balance':    float(balance['locked']),
