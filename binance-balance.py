@@ -55,7 +55,9 @@ class BalanceGUI(tk.Frame):
         self.rebalance_time = int(config.get('trades', 'rebalance_period')) * s_to_ms
         if self.rebalance_time <= 0:
             self.display_error('Config Error', 'Rebalance period must be a positive integer (seconds)', quit_on_exit=True)
-        
+        self.min_trade_value = float(config.get('trades', 'min_trade_value'))
+        if self.min_trade_value <= 0:
+            self.min_trade_value = None
         trade_type = config.get('trades', 'trade_type')
         if trade_type != 'MARKET' and trade_type != 'LIMIT':
             self.display_error('Config Error', '{0} is not a supported trade type. Use MARKET or LIMIT'.format(trade_type), quit_on_exit=True)
@@ -281,6 +283,9 @@ class BalanceGUI(tk.Frame):
             if coin != trade_currency:
                 price = float(self.client.get_symbol_ticker(symbol=pair)['price'])
                 symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
+                minvalue = float(symbolinfo[2]['minNotional'])
+                if self.min_trade_value is not None:
+                    minvalue = self.min_trade_value
                 row = {'coin':              coin,
                        'exchange_balance':  float(balance['free']),
                        'locked_balance':    float(balance['locked']),
@@ -290,7 +295,7 @@ class BalanceGUI(tk.Frame):
                        'minqty':            float(symbolinfo[1]['minQty']),
                        'maxqty':            float(symbolinfo[1]['maxQty']),
                        'stepsize':          float(symbolinfo[1]['stepSize']),                   
-                       'minnotional':       float(symbolinfo[2]['minNotional']),
+                       'minnotional':       minvalue,
                        'symbol':            pair,
                        'askprice' :         price,
                        'bidprice':          price,
