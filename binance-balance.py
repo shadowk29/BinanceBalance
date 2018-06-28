@@ -216,8 +216,13 @@ class BalanceGUI(tk.Frame):
                 BinanceAPIException) as e:
             self.display_error('Login Error', e.message)
         else:
-            self.populate_portfolio()
-            self.start_websockets()
+            try:
+                self.populate_portfolio()
+            except BinanceAPIException as e:
+                self.display_error('API Error', e.message, quit_on_exit=True)
+            else:
+                self.start_websockets()
+            
             
             
     def start_websockets(self):
@@ -265,7 +270,6 @@ class BalanceGUI(tk.Frame):
         progress_var.set(progress)
         self.progressbar = ttk.Progressbar(self.controls_view, variable=progress_var, maximum=len(self.coins))
         self.progressbar.grid(row=0, column=0, columnspan=4, sticky=tk.E + tk.W)
-
         for coin in self.coins['coin']:
             self.progressbar.update()
             progress += 1
@@ -273,16 +277,10 @@ class BalanceGUI(tk.Frame):
             updatetext.set('Fetching {0} account information'.format(coin))
             self.progresslabel.update()
             pair = coin+trade_currency
-            try:
-                balance = self.client.get_asset_balance(asset=coin)
-            except BinanceAPIException as e:
-               self.display_error('API Error', e.message, quit_on_exit=True) 
+            balance = self.client.get_asset_balance(asset=coin)
             if coin != trade_currency:
-                try:
-                    price = float(self.client.get_symbol_ticker(symbol=pair)['price'])
-                    symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
-                except BinanceAPIException as e:
-                    self.display_error('API Error', e.message, quit_on_exit=True)
+                price = float(self.client.get_symbol_ticker(symbol=pair)['price'])
+                symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
                 row = {'coin':              coin,
                        'exchange_balance':  float(balance['free']),
                        'locked_balance':    float(balance['locked']),
