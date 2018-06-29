@@ -367,11 +367,7 @@ class BalanceGUI(tk.Frame):
         self.toggle_automate = tk.Button(self.controls_view,
                                          textvariable=self.automate_text,
                                          command=lambda: self.automation(toggle=True))
-        self.toggle_automate.grid(row=0, column=0, rowspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
-        self.toggle_automate = tk.Button(self.controls_view,
-                                         text='Start Automation',
-                                         command=lambda: self.automation(toggle=True))
-        self.toggle_automate.grid(row=0, column=0, columnspan=2, rowspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
+        self.toggle_automate.grid(row=0, column=0, rowspan=2, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
         self.sell_button = tk.Button(self.controls_view,
                                      text='Execute Sells',
                                      command=self.execute_sells)
@@ -612,7 +608,7 @@ class BalanceGUI(tk.Frame):
             
     def automation(self, toggle=False):
         if toggle:
-            if self.automate.get():
+            if not self.automate.get():
                 self.automate_text.set('Stop Automation')
             else:
                 self.automate_text.set('Start Automation')
@@ -620,7 +616,9 @@ class BalanceGUI(tk.Frame):
         if self.automate.get():
             self.execute_sells()
             self.execute_buys()
-            self.parent.after(self.rebalance_time, self.automation)
+            self.rebalance_callback = self.parent.after(self.rebalance_time, self.automation)
+        else:
+            self.parent.after_cancel(self.rebalance_callback)
     
     def execute_sells(self):
         '''
