@@ -152,8 +152,8 @@ class BalanceGUI(tk.Frame):
         self.min_trade_value = float(config.get('trades', 'min_trade_value'))
         if self.min_trade_value <= 0:
             self.min_trade_value = None
-        trade_type = config.get('trades', 'trade_type')
-        if trade_type != 'MARKET' and trade_type != 'LIMIT':
+        self.trade_type = config.get('trades', 'trade_type')
+        if self. trade_type != 'MARKET' and self.trade_type != 'LIMIT':
             self.display_error('Config Error',
                                '{0} is not a supported trade type. Use MARKET or LIMIT'.format(trade_type),
                                quit_on_exit=True)
@@ -531,7 +531,7 @@ class BalanceGUI(tk.Frame):
             if coin == self.trade_coin:
                 status = 'Ready'
             elif qty < row.minqty or qty * price < row.minnotional:
-                status = status = 'Trade value too small ({0.0f}%'.format(qty * price / row.minnotional)
+                status = status = 'Trade value too small ({0:.0f}%)'.format(100.0 * qty * price / row.minnotional)
             elif qty > row.maxqty:
                 status = 'Trade quantity too large'
             elif side == SIDE_BUY and qty * price > tradecoin_free:
@@ -574,16 +574,15 @@ class BalanceGUI(tk.Frame):
             if coin == self.trade_coin:
                 status = 'Ready'
             elif qty < row.minqty or qty * price < row.minnotional:
-                status = 'Trade value too small ({0.0f}%'.format(qty * price / row.minnotional)
+                status = 'Trade value too small ({0:.0f}%)'.format(100.0 * qty * price / row.minnotional)
             elif qty > row.maxqty:
                 status = 'Trade quantity too large'
             elif side == SIDE_BUY and qty * price > tradecoin_free:
                 status = 'Insufficient ' + self.trade_coin + ' for purchase'
             elif last_placement == None or last_execution >= last_placement:
-                trade_type = self.ordertype.get()
                 trade_currency = self.trade_coin
                 try:
-                    self.place_order(coin, pair, trade_type, qty, price, side, dryrun, row.stepsize, row.ticksize)
+                    self.place_order(coin, pair, self.trade_type, qty, price, side, dryrun, row.stepsize, row.ticksize)
                 except (BinanceRequestException,
                         BinanceAPIException,
                         BinanceOrderException,
