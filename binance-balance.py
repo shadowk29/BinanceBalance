@@ -595,7 +595,7 @@ class BalanceGUI(tk.Frame):
                         BinanceOrderMinTotalException,
                         BinanceOrderUnknownSymbolException,
                         BinanceOrderInactiveSymbolException) as e:
-                    status = e.message
+                    self.portfolio.set(coin, column='Event', value=e.message)
                 else:
                     status = 'Trade Ready'
                     if not dryrun:
