@@ -504,7 +504,6 @@ class BalanceGUI(tk.Frame):
         Calcuate required trades and update the main GUI
         '''
         for row in self.coins.itertuples():
-            update = False
             tradecoin_balance = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['exchange_balance'].values)
             tradecoin_locked = np.squeeze(self.coins[self.coins['coin'] == self.trade_coin]['locked_balance'].values)
             tradecoin_free = tradecoin_balance - tradecoin_locked
@@ -532,16 +531,14 @@ class BalanceGUI(tk.Frame):
             if coin == self.trade_coin:
                 status = 'Ready'
             elif qty < row.minqty or qty * price < row.minnotional:
-                status = 'Trade value too small'
+                status = status = 'Trade value too small ({0.0f}%'.format(qty * price / row.minnotional)
             elif qty > row.maxqty:
                 status = 'Trade quantity too large'
             elif side == SIDE_BUY and qty * price > tradecoin_free:
                 status = 'Insufficient ' + self.trade_coin + ' for purchase'
             else:
                 status = 'Trade Ready'
-                update = True
-            if update:
-                self.portfolio.set(coin, column='Status', value=status)
+            self.portfolio.set(coin, column='Status', value=status)
             self.portfolio.set(coin, column='Action', value=action)
             
     def execute_transactions(self, side, dryrun):
@@ -577,7 +574,7 @@ class BalanceGUI(tk.Frame):
             if coin == self.trade_coin:
                 status = 'Ready'
             elif qty < row.minqty or qty * price < row.minnotional:
-                status = 'Trade value too small'
+                status = 'Trade value too small ({0.0f}%'.format(qty * price / row.minnotional)
             elif qty > row.maxqty:
                 status = 'Trade quantity too large'
             elif side == SIDE_BUY and qty * price > tradecoin_free:
