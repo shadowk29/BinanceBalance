@@ -2,7 +2,7 @@ This project still requires testing. I don't recommend using it yet.
 
 This is a simple cryptocurrency portfolio rebalancing app that allows you to maintain a fixed percentage allocation of any coins that have a BTC pairing on Binance. It uses the python-binance (https://github.com/sammchardy/python-binance) API to interact with Binance in order to pull balances and execute trades. 
 
-This app runs entirely locally, meaning that your API keys do not need to be stored on a server anywhere. It allows for LIMIT orders (at market price) so that trading in low-volume coins is relatively safe when rebalancing automatically.
+This app runs entirely locally, meaning that your API keys do not need to be stored on a server anywhere. It allows for LIMIT orders (at market price) so that trading in low-volume coins is relatively safe when rebalancing automatically, though be aware that LIMIT orders are not guaranteed to get filled and the app currently does not cancel orders automatically. 
 
 To run, there must be a configuration file present in the same directory as the code/executable called allocations.csv. This file lists all of the coins you wish the bot to handle, the amount you have in cold storage off the exchange, and the desired allocation percentage. An example is below:
 
@@ -36,9 +36,9 @@ XRP,50,5
 
 Coins which are not listed in this file will be ignored even if you hold them on Binance. 
 
-When run, you will be asked to enter your API key/secret. These are not stored anywhere and are used exactly once per session to connect to Binance. Before you can rebalance you must execute a dry run, which will simply list all of the trades needed to bring your coins into balance. 
+When run, you will be asked to enter your API key/secret. These are not stored anywhere except in RAM while the program is running. 
 
-For the time being this is a manual operation only, and you must execute sells before you execute buys to ensure sufficient BTC exists to complete the buy steps. Performing a dry run will enable the sell button, and using the sell button will enable the buy button, though currently the user is responsible for allowing the sells to complete execution before attempting the buys, unless sufficient BTC alrady exists on the exchange to allow the necessary trades to happen.
+Automating trades will simply result in continuous trading until terminated by the user or a bad connection.
 
 
 
