@@ -514,7 +514,7 @@ class BalanceGUI(tk.Frame):
         avg_price = float(msg['w'])
         time = float(msg['E'])
         mid_price = (float(msg['b']) + float(msg['a']))/2.0
-        self.records['pair'].write('{0},{1},{2}\n'.format(time,avg_price,mid_price)
+        self.records['pair'].write('{0},{1},{2}\n'.format(time,avg_price,mid_price))
 
     def update_actions(self):
         '''
