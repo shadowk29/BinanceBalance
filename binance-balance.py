@@ -498,6 +498,15 @@ class BalanceGUI(tk.Frame):
             self.portfolio.set(coin, column='Actual', value=actual)
         self.update_actions()
         self.update_status()
+        self.print_price(msg)
+
+    def print_price(self, msg):
+        pair = msg['s']
+        avg_price = float(msg['w'])
+        time = float(msg['E'])
+        mid_price = (float(msg['b']) + float(msg['a']))/2.0
+        with open(pair+'.csv','a+') as f:
+            f.write('{0},{1},{2}'.format(time,avg_price,mid_price)
 
     def update_actions(self):
         '''
