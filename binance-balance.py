@@ -183,8 +183,9 @@ class BalanceGUI(tk.Frame):
             else:
                 with open('trade_history.csv','w') as f:
                     df.to_csv(f, sep=',', header=True, index=False)
-        for key, val in self.records:
-                val.close()
+        for coin in self.coins['coin']:
+            pair = coin+self.trade_currency
+            self.records[pair].close()
         try:
             self.bm.close()
             reactor.stop()
@@ -258,7 +259,7 @@ class BalanceGUI(tk.Frame):
         self.records = dict()
         for coin in self.coins['coin']:
             pair = coin+self.trade_currency
-            self.records['pair'] = open(pair + '.csv','a+',1) #line buffered
+            self.records[pair] = open(pair + '.csv','a+',1) #unbuffered
             
     def populate_portfolio(self):
         '''
@@ -514,7 +515,7 @@ class BalanceGUI(tk.Frame):
         avg_price = float(msg['w'])
         time = float(msg['E'])
         mid_price = (float(msg['b']) + float(msg['a']))/2.0
-        self.records['pair'].write('{0},{1},{2}\n'.format(time,avg_price,mid_price))
+        self.records[pair].write('{0},{1},{2}\n'.format(time,avg_price,mid_price))
 
     def update_actions(self):
         '''
