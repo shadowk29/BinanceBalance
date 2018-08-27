@@ -45,6 +45,7 @@ class BalanceGUI(tk.Frame):
         self.trades = []
         self.headers = self.column_headers()
         self.read_config()
+        self.initalize_records()
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -182,6 +183,8 @@ class BalanceGUI(tk.Frame):
             else:
                 with open('trade_history.csv','w') as f:
                     df.to_csv(f, sep=',', header=True, index=False)
+        for key, val in self.records:
+                val.close()
         try:
             self.bm.close()
             reactor.stop()
@@ -251,6 +254,12 @@ class BalanceGUI(tk.Frame):
         self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
         self.parent.after_idle(self.process_queue)
 
+    def initalize_records(self):
+        self.records = dict()
+        for coin in self.coins['coin']:
+            pair = coin+self.trade_currency
+            self.records['pair'] = open(pair + '.csv','a+',0)
+            
     def populate_portfolio(self):
         '''
         Get all symbol info from Binance needed to
@@ -505,8 +514,7 @@ class BalanceGUI(tk.Frame):
         avg_price = float(msg['w'])
         time = float(msg['E'])
         mid_price = (float(msg['b']) + float(msg['a']))/2.0
-        with open(pair+'.csv','a+') as f:
-            f.write('{0},{1},{2}'.format(time,avg_price,mid_price)
+        self.records['pair'].write('{0},{1},{2}'.format(time,avg_price,mid_price)
 
     def update_actions(self):
         '''
