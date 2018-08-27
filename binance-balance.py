@@ -258,7 +258,7 @@ class BalanceGUI(tk.Frame):
         self.records = dict()
         for coin in self.coins['coin']:
             pair = coin+self.trade_currency
-            self.records['pair'] = open(pair + '.csv','a+',0)
+            self.records['pair'] = open(pair + '.csv','a+',1) #line buffered
             
     def populate_portfolio(self):
         '''
