@@ -14,7 +14,8 @@ import Queue
 from twisted.internet import reactor
 import os.path
 import ConfigParser
-
+from collections import deque
+from scipy.signal import detrend
 
 def round_decimal(num, decimal):
     '''
@@ -30,6 +31,46 @@ def round_decimal(num, decimal):
     return '{0:.8f}'.format(x).rstrip('0').rstrip('.')
 
 
+class TrendLine:
+    def __init__(self, window, dt):
+        self.t = deque()
+        self.y = deque()
+        self.window = window
+        self.dt = dt
+        self.trend = 0
+
+    def append(self,t,y):
+        if self.t and t - self.t[0] > self.window:
+            self.t.popleft()
+            self.y.popleft()
+        self.t.append(t)
+        self.y.append(y)
+
+    def trend(self):
+        p = np.polyfit(self.t, self.y, 2)
+        localstd = self.local_stdev(self.t,self.y,self.dt)
+        dy = p[0]*(2*self.t[-1]*self.dt + self.dt**2) + p[1]*self.dt
+        if np.absolute(dy) - localstd > 0:
+            if dy > 0:
+                self.trend = 1
+            else:
+                self.trend = -1
+        else:
+            self.trend = 0
+    
+    def local_stdev(self):
+        start = self.t[0]
+        end = self.t[-1] - dt
+        t = np.array(self.t)
+        y = np.array(self.y)
+        localstd = []
+        while start < end:
+            inds = [(t >= start) * (t < start + self.dt)]
+            localy = y[inds]
+            localstd.append(np.std(localy))
+            start += dt
+        return np.min(localstd)
+    
 class BalanceGUI(tk.Frame):
     def __init__(self, parent, coins):
         ''' Initialize the GUI and read the config file '''
