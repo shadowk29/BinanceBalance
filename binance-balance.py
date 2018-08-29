@@ -293,6 +293,7 @@ class BalanceGUI(tk.Frame):
         self.sockets = {}
         for symbol in symbols:
             self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
+            self.sockets[symbol+'kline'] = self.bm.start_kline_socket(symbol, self.queue_msg)
         self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
         self.parent.after_idle(self.process_queue)
 
@@ -312,6 +313,7 @@ class BalanceGUI(tk.Frame):
         exchange_coins = []
         trade_currency = self.trade_currency
         self.trade_coin = trade_currency
+        self.trendlines = {}
 
 
         #update the GUI context
@@ -361,6 +363,7 @@ class BalanceGUI(tk.Frame):
                        'last_placement':    None,
                        'last_execution':    None
                        }
+                self.trendlines[coin] = TrendLine(1,1)
             else:
                 fixed_balance = self.coins.loc[self.coins['coin'] == coin]['fixed_balance']
                 row = {'coin':              coin,
@@ -462,6 +465,8 @@ class BalanceGUI(tk.Frame):
                 self.update_balance(msg)
             elif msg['e'] == 'executionReport':
                 self.update_trades(msg)
+            elif msg['e'] == 'kline':
+                self.update_trends(msg)
                 
     def process_queue(self, flush=False):
         '''
@@ -479,6 +484,11 @@ class BalanceGUI(tk.Frame):
             self.messages_string.set('{0} Updates Queued'.format(n))
         else:
             self.messages_string.set('Up to Date')
+
+    def update_trends(self, msg):
+        if msg['k']['x']:
+            coin = msg['s'][:-len(self.trade_coin)]
+            self.trendlines[coin].append(float(msg['k']['T'])/1000., float(msg['k']['c'])/1000.)
 
     def update_trades(self, msg):
         ''' Update balances whenever a partial execution occurs '''
