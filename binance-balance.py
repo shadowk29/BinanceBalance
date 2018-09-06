@@ -295,7 +295,7 @@ class BalanceGUI(tk.Frame):
             self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
             self.sockets[symbol+'kline'] = self.bm.start_kline_socket(symbol, self.queue_msg)
         self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
-        self.parent.after_idle(self.process_queue)
+        self.parent.after_idle(self.parent.after(1,self.process_queue))
 
     def initalize_records(self):
         self.records = dict()
