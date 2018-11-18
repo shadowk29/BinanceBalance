@@ -747,7 +747,7 @@ class BalanceGUI(tk.Frame):
                 'c': 'client_order_id',
                 'S': 'side',
                 'o': 'type',
-                'O': 'unknown_1',
+                'O': 'order_creation_time',
                 'f': 'time_in_force',
                 'q': 'order_quantity',
                 'p': 'order_price',
@@ -761,7 +761,7 @@ class BalanceGUI(tk.Frame):
                 'i': 'order_id',
                 'l': 'last_executed_quantity',
                 'z': 'cumulative_filled_quantity',
-                'Z': 'unknown_2',
+                'Z': 'cumulative_quote_asset_transacted_qty',
                 'L': 'last_executed_price',
                 'n': 'commission_amount',
                 'N': 'commission_asset',
@@ -770,7 +770,8 @@ class BalanceGUI(tk.Frame):
                 'I': 'ignore_2',
                 'w': 'order_working',
                 'm': 'maker_side',
-                'M': 'ignore_3'}
+                'M': 'ignore_3',
+                'Y': 'last_quote_asset_transacted_qty'}
  
 def main():
     portfolio = 'allocation.csv'
