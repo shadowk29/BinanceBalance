@@ -343,7 +343,7 @@ class BalanceGUI(tk.Frame):
             if coin != trade_currency:
                 price = float(self.client.get_symbol_ticker(symbol=pair)['price'])
                 symbolinfo = self.client.get_symbol_info(symbol=pair)['filters']
-                minvalue = float(symbolinfo[2]['minNotional'])
+                minvalue = float(symbolinfo[3]['minNotional'])
                 if self.min_trade_value is not None:
                     minvalue = self.min_trade_value
                 row = {'coin':              coin,
@@ -352,9 +352,9 @@ class BalanceGUI(tk.Frame):
                        'minprice':          float(symbolinfo[0]['minPrice']),
                        'maxprice':          float(symbolinfo[0]['maxPrice']),
                        'ticksize':          float(symbolinfo[0]['tickSize']),
-                       'minqty':            float(symbolinfo[1]['minQty']),
-                       'maxqty':            float(symbolinfo[1]['maxQty']),
-                       'stepsize':          float(symbolinfo[1]['stepSize']),                   
+                       'minqty':            float(symbolinfo[2]['minQty']),
+                       'maxqty':            float(symbolinfo[2]['maxQty']),
+                       'stepsize':          float(symbolinfo[2]['stepSize']),                   
                        'minnotional':       minvalue,
                        'symbol':            pair,
                        'askprice' :         price,
