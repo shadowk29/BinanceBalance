@@ -286,7 +286,6 @@ class BalanceGUI(tk.Frame):
         Start the message queue processor.
         '''
         self.bm = BinanceSocketManager(self.client)
-        self.bm.start()
         trade_currency = self.trade_currency
         symbols = self.coins['symbol'].tolist()
         symbols.remove(trade_currency+trade_currency)
@@ -295,6 +294,7 @@ class BalanceGUI(tk.Frame):
             self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
             self.sockets[symbol+'kline'] = self.bm.start_kline_socket(symbol, self.queue_msg)
         self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
+        self.bm.start()
         self.parent.after_idle(self.parent.after,1,self.process_queue)
 
     def initalize_records(self):
@@ -478,7 +478,7 @@ class BalanceGUI(tk.Frame):
                 self.get_msg()
         else:
             self.get_msg()
-            self.master.after_idle(self.process_queue)
+            self.master.after_idle(self.master.after,1,self.process_queue)
         n = self.queue.qsize()
         if n > self.ignore_backlog:
             self.messages_string.set('{0} Updates Queued'.format(n))
