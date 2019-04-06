@@ -1,6 +1,6 @@
-import Tkinter as tk
-import ttk
-import tkFileDialog
+import tkinter as tk
+from tkinter import ttk
+from tkinter import filedialog
 import pandas as pd
 from binance.client import Client
 from binance.websockets import BinanceSocketManager
@@ -10,10 +10,10 @@ import numpy as np
 from datetime import datetime
 import time
 from tkinter import messagebox
-import Queue
+import queue
 from twisted.internet import reactor
 import os.path
-import ConfigParser
+import configparser
 from collections import deque
 from scipy.signal import detrend
 
@@ -80,13 +80,15 @@ class BalanceGUI(tk.Frame):
         parent.deiconify()
         self.coins = coins
         self.coins_base = coins
-        self.queue = Queue.Queue()
+        self.queue = queue.Queue()
+        self.maxSize = 200
         self.trades_placed = 0
         self.trades_completed = 0
         self.trades = []
         self.headers = self.column_headers()
         self.read_config()
         self.initalize_records()
+        self.Triggered = False
         
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
@@ -126,13 +128,19 @@ class BalanceGUI(tk.Frame):
         self.key_label.grid(row=0, column=0,sticky=tk.E + tk.W)
         
         self.secret_label = tk.Label(self.controls_view, text='API Secret', relief='ridge')
-        self.secret_label.grid(row=1, column=0,sticky=tk.E + tk.W)
+        self.secret_label.grid(row=1, column=0,sticky=tk.E + tk.W )
         
-        self.key_entry = tk.Entry(self.controls_view, show='*')
+        k = tk.StringVar( value='KEY')
+        s = tk.StringVar( value='SECRET')
+       
+
+        self.key_entry = tk.Entry(self.controls_view,textvariable=k)
         self.key_entry.grid(row=0, column=1, columnspan=2,sticky=tk.E + tk.W)
         
-        self.secret_entry = tk.Entry(self.controls_view, show='*')
+        self.secret_entry = tk.Entry(self.controls_view, textvariable=s)
         self.secret_entry.grid(row=1, column=1, columnspan=2, sticky=tk.E + tk.W)
+
+
         
         self.login = tk.Button(self.controls_view,
                                text='Login',
@@ -160,6 +168,13 @@ class BalanceGUI(tk.Frame):
         self.imbalance_value = tk.Label(self.stats_view, textvariable=self.imbalance_string)
         self.imbalance_value.grid(row=1, column=1, sticky=tk.E + tk.W)
 
+        self.USD_label = tk.Label(self.stats_view, text='USD Value:', relief='ridge')
+        self.USD_label.grid(row=2, column=0, sticky=tk.E + tk.W)
+        self.USD_string = tk.StringVar()
+        self.USD_string.set('0')
+        self.USD_value = tk.Label(self.stats_view, textvariable=self.USD_string)
+        self.USD_value.grid(row=2, column=1, sticky=tk.E + tk.W)
+
 
         self.messages_queued_label = tk.Label(self.stats_view, text='Status', relief='ridge')
         self.messages_queued_label.grid(row=0, column=2, sticky=tk.E + tk.W)
@@ -179,7 +194,7 @@ class BalanceGUI(tk.Frame):
 
     def read_config(self):
         s_to_ms = 1000
-        config = ConfigParser.RawConfigParser(allow_no_value=False)
+        config = configparser.RawConfigParser(allow_no_value=False)
         config.read('config.ini')
         self.trade_currency = config.get('trades', 'trade_currency')
         if self.trade_currency != 'BTC':
@@ -191,6 +206,13 @@ class BalanceGUI(tk.Frame):
             self.display_error('Config Error',
                                'Rebalance period must be a positive integer (seconds)',
                                quit_on_exit=True)
+
+        self.rebalance_imbalance_threshold = float(config.get('trades', 'rebalance_imbalance_threshold'))
+        if self.rebalance_imbalance_threshold <= 0:
+             self.display_error('Config Error',
+                               'rebalance_imbalance_threshold must be a set',
+                               quit_on_exit=True)
+
         self.min_trade_value = float(config.get('trades', 'min_trade_value'))
         if self.min_trade_value <= 0:
             self.min_trade_value = None
@@ -288,14 +310,17 @@ class BalanceGUI(tk.Frame):
         self.bm = BinanceSocketManager(self.client)
         trade_currency = self.trade_currency
         symbols = self.coins['symbol'].tolist()
-        symbols.remove(trade_currency+trade_currency)
+        symbols.append('USDT') 
+       
+#        symbols.remove(trade_currency+trade_currency)
         self.sockets = {}
         for symbol in symbols:
             self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
-            self.sockets[symbol+'kline'] = self.bm.start_kline_socket(symbol, self.queue_msg)
+         #  self.sockets[symbol+'kline'] = self.bm.start_kline_socket(symbol, self.queue_msg)
         self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
         self.bm.start()
         self.parent.after_idle(self.parent.after,1,self.process_queue)
+        
 
     def initalize_records(self):
         self.records = dict()
@@ -436,8 +461,27 @@ class BalanceGUI(tk.Frame):
         value = '{0:.8f}'.format(self.total)
         diff = np.diff(self.coins['actual'].values - self.coins['allocation'].values)
         imbalance = '{0:.2f}%'.format(np.sum(np.absolute(diff)))
+        imbalanceFloat = '{0:.2f}'.format(np.sum(np.absolute(diff)))
         self.trade_currency_value_string.set(value)
         self.imbalance_string.set(imbalance)
+    
+        #Execute rebalance early if the portfolio percent breaches threshold
+        if self.Triggered == False:
+            if float(imbalanceFloat) > self.rebalance_imbalance_threshold:
+                 self.Triggered = True
+                 print("Forcing Rebalance based on Imbalance")
+                 self.execute_sells()
+                 self.execute_buys()
+                 self.Triggered = False
+           
+        '''Update the USD frame whenever a change occurs in balance or price'''
+       # value = '{0:.8f}'.format(self.total)
+       # diff = np.diff(self.coins['actual'].values - self.coins['allocation'].values)
+        
+        USD = '{0:.2f}%'.format(np.sum(np.absolute(diff)))
+        USDValue = round(float(value) * float(self.client.get_symbol_ticker(symbol='BTCUSDT')['price']),2)
+        self.USD_string.set('$' + str(USDValue))
+        #float(self.client.get_symbol_ticker(symbol='BTCUSDT')['price'])
         
     def queue_msg(self, msg):
         '''
@@ -446,9 +490,13 @@ class BalanceGUI(tk.Frame):
         the message queue.
         '''
         if msg['e'] == 'error':
+            print("Error")
             self.bm.close()
             reactor.stop()
             self.start_websockets()
+        if self.queue.qsize() >= self.maxSize:
+            self.messages_string.set('Queue Full ' + str(self.queue.qsize()) + '/' + str(self.maxSize))
+        
         else:
             self.queue.put(msg)
 
@@ -456,7 +504,7 @@ class BalanceGUI(tk.Frame):
         '''Reroute new websocket messages to the appropriate handler'''
         try:
             msg = self.queue.get(block=False)
-        except Queue.Empty:
+        except queue.Empty:
             pass
         else:
             if msg['e'] == '24hrTicker':
@@ -496,12 +544,13 @@ class BalanceGUI(tk.Frame):
         savemsg = {self.headers[key] : value for key, value in msg.items()}
         filled = float(savemsg['cumulative_filled_quantity'])
         orderqty = float(savemsg['order_quantity'])
+        order_price = float(savemsg['order_price'])
         side = savemsg['side']
         if filled >= orderqty:
             self.coins.loc[self.coins['coin'] == coin, 'last_execution'] = time.mktime(datetime.now().timetuple())
             self.trades_completed += 1
             self.trades_count.set(self.trades_completed)
-        self.portfolio.set(coin, column='Event', value = '{0} {1}/{2} {3}'.format(side, filled, orderqty,datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+        self.portfolio.set(coin, column='Event', value = '{0} {1}/{2} @ {3} BTC {4} '.format(side, filled, orderqty ,order_price, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         self.trades.append(savemsg)    
 
     def update_balance(self, msg):
