@@ -134,8 +134,8 @@ class GuiPart:
         self.secret_label = tk.Label(self.controls_view, text='API Secret', relief='ridge')
         self.secret_label.grid(row=1, column=0,sticky=tk.E + tk.W )
         
-        k = tk.StringVar( value='')
-        s = tk.StringVar( value='')
+        #k = tk.StringVar( value='')
+        #s = tk.StringVar( value='')
 
         self.key_entry = tk.Entry(self.controls_view, show='*')
         self.key_entry.grid(row=0, column=1, columnspan=2,sticky=tk.E + tk.W)
@@ -911,8 +911,19 @@ class ThreadedClient:
                 else:
                         
                         self.gui.messages_string.set('Threads {0}, Queued {1}, Rec {2}, Proc {3}'.format(str(threadcount),self.queueLength, received, processed))  
+                        if threadcount > maxThreads:
+                           return
+                        else:
+                           maxThreads = maxThreads - 1
+
+                        if maxThreads <= 3:
+                           maxThreads = 3
+
                         if self.lastQsize < self.queueLength:
                            return
+
+                       
+                         
                         
                 self.master.after_idle(self.master.after,250,self.processIncoming)
    
