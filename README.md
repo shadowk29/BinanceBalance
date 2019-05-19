@@ -1,4 +1,4 @@
-This project still requires testing. I don't recommend using it yet.
+NOTE: the last stable release can be found on the "legacy" branch and runs on python2. The main branch has been updated to python3, but suffers from speed issues and is under development. Use the python2 version on legacy for the time being.
 
 This is a simple cryptocurrency portfolio rebalancing app that allows you to maintain a fixed percentage allocation of any coins that have a BTC pairing on Binance. It uses the python-binance (https://github.com/sammchardy/python-binance) API to interact with Binance in order to pull balances and execute trades. 
 
@@ -33,6 +33,8 @@ OMG,10,5
 XMR,3,5
 
 XRP,50,5
+
+You will also need the config.ini file, which should be self-explanatory once opened. 
 
 Coins which are not listed in this file will be ignored even if you hold them on Binance. 
 
