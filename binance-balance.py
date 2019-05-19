@@ -134,8 +134,8 @@ class GuiPart:
         self.secret_label = tk.Label(self.controls_view, text='API Secret', relief='ridge')
         self.secret_label.grid(row=1, column=0,sticky=tk.E + tk.W )
         
-        #k = tk.StringVar( value='')
-        #s = tk.StringVar( value='')
+        k = tk.StringVar( value='')
+        s = tk.StringVar( value='')
 
         self.key_entry = tk.Entry(self.controls_view, show='*')
         self.key_entry.grid(row=0, column=1, columnspan=2,sticky=tk.E + tk.W)
