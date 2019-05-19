@@ -1,6 +1,6 @@
-import Tkinter as tk
-import ttk
-import tkFileDialog
+import tkinter as tk
+import tkinter.ttk
+import tkinter.filedialog
 import pandas as pd
 from binance.client import Client
 from binance.websockets import BinanceSocketManager
@@ -10,10 +10,10 @@ import numpy as np
 from datetime import datetime
 import time
 from tkinter import messagebox
-import Queue
+import queue
 from twisted.internet import reactor
 import os.path
-import ConfigParser
+import configparser
 from collections import deque
 from scipy.signal import detrend
 
@@ -31,45 +31,6 @@ def round_decimal(num, decimal):
     return '{0:.8f}'.format(x).rstrip('0').rstrip('.')
 
 
-class TrendLine:
-    def __init__(self, window, dt):
-        self.t = deque()
-        self.y = deque()
-        self.window = window
-        self.dt = dt
-        self.trend = 0
-
-    def append(self,t,y):
-        if self.t and t - self.t[0] > self.window:
-            self.t.popleft()
-            self.y.popleft()
-        self.t.append(t)
-        self.y.append(y)
-
-    def trend(self):
-        p = np.polyfit(self.t, self.y, 2)
-        localstd = self.local_stdev(self.t,self.y,self.dt)
-        dy = p[0]*(2*self.t[-1]*self.dt + self.dt**2) + p[1]*self.dt
-        if np.absolute(dy) - localstd > 0:
-            if dy > 0:
-                self.trend = 1
-            else:
-                self.trend = -1
-        else:
-            self.trend = 0
-    
-    def local_stdev(self):
-        start = self.t[0]
-        end = self.t[-1] - dt
-        t = np.array(self.t)
-        y = np.array(self.y)
-        localstd = []
-        while start < end:
-            inds = [(t >= start) * (t < start + self.dt)]
-            localy = y[inds]
-            localstd.append(np.std(localy))
-            start += dt
-        return np.min(localstd)
     
 class BalanceGUI(tk.Frame):
     def __init__(self, parent, coins):
@@ -80,7 +41,7 @@ class BalanceGUI(tk.Frame):
         parent.deiconify()
         self.coins = coins
         self.coins_base = coins
-        self.queue = Queue.Queue()
+        self.queue = queue.Queue()
         self.trades_placed = 0
         self.trades_completed = 0
         self.trades = []
@@ -91,7 +52,7 @@ class BalanceGUI(tk.Frame):
         #portfolio display
         self.portfolio_view = tk.LabelFrame(parent, text='Portfolio')
         self.portfolio_view.grid(row=0, column=0, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
-        self.portfolio = ttk.Treeview(self.portfolio_view, height = len(self.coins), selectmode = 'extended')
+        self.portfolio = tkinter.ttk.Treeview(self.portfolio_view, height = len(self.coins), selectmode = 'extended')
         self.portfolio['columns']=('Stored',
                                    'Exchange',
                                    'Locked',
@@ -179,7 +140,7 @@ class BalanceGUI(tk.Frame):
 
     def read_config(self):
         s_to_ms = 1000
-        config = ConfigParser.RawConfigParser(allow_no_value=False)
+        config = configparser.RawConfigParser(allow_no_value=False)
         config.read('config.ini')
         self.trade_currency = config.get('trades', 'trade_currency')
         if self.trade_currency != 'BTC':
@@ -292,7 +253,6 @@ class BalanceGUI(tk.Frame):
         self.sockets = {}
         for symbol in symbols:
             self.sockets[symbol] = self.bm.start_symbol_ticker_socket(symbol, self.queue_msg)
-            self.sockets[symbol+'kline'] = self.bm.start_kline_socket(symbol, self.queue_msg)
         self.sockets['user'] = self.bm.start_user_socket(self.queue_msg)
         self.bm.start()
         self.parent.after_idle(self.parent.after,1,self.process_queue)
@@ -313,7 +273,6 @@ class BalanceGUI(tk.Frame):
         exchange_coins = []
         trade_currency = self.trade_currency
         self.trade_coin = trade_currency
-        self.trendlines = {}
 
 
         #update the GUI context
@@ -330,7 +289,7 @@ class BalanceGUI(tk.Frame):
         progress_var = tk.DoubleVar()
         progress = 0
         progress_var.set(progress)
-        self.progressbar = ttk.Progressbar(self.controls_view, variable=progress_var, maximum=len(self.coins))
+        self.progressbar = tkinter.ttk.Progressbar(self.controls_view, variable=progress_var, maximum=len(self.coins))
         self.progressbar.grid(row=0, column=0, columnspan=4, sticky=tk.E + tk.W)
         for coin in self.coins['coin']:
             self.progressbar.update()
@@ -363,7 +322,6 @@ class BalanceGUI(tk.Frame):
                        'last_placement':    None,
                        'last_execution':    None
                        }
-                self.trendlines[coin] = TrendLine(1,1)
             else:
                 fixed_balance = self.coins.loc[self.coins['coin'] == coin]['fixed_balance']
                 row = {'coin':              coin,
@@ -456,7 +414,7 @@ class BalanceGUI(tk.Frame):
         '''Reroute new websocket messages to the appropriate handler'''
         try:
             msg = self.queue.get(block=False)
-        except Queue.Empty:
+        except queue.Empty:
             pass
         else:
             if msg['e'] == '24hrTicker':
@@ -465,8 +423,6 @@ class BalanceGUI(tk.Frame):
                 self.update_balance(msg)
             elif msg['e'] == 'executionReport':
                 self.update_trades(msg)
-            elif msg['e'] == 'kline':
-                self.update_trends(msg)
                 
     def process_queue(self, flush=False):
         '''
@@ -485,15 +441,11 @@ class BalanceGUI(tk.Frame):
         else:
             self.messages_string.set('Up to Date')
 
-    def update_trends(self, msg):
-        if msg['k']['x']:
-            coin = msg['s'][:-len(self.trade_coin)]
-            self.trendlines[coin].append(float(msg['k']['T'])/1000., float(msg['k']['c'])/1000.)
 
     def update_trades(self, msg):
         ''' Update balances whenever a partial execution occurs '''
         coin = msg['s'][:-len(self.trade_coin)]
-        savemsg = {self.headers[key] : value for key, value in msg.items()}
+        savemsg = {self.headers[key] : value for key, value in list(msg.items())}
         filled = float(savemsg['cumulative_filled_quantity'])
         orderqty = float(savemsg['order_quantity'])
         side = savemsg['side']
