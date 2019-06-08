@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import Tk, Label, Button, messagebox
+from tkinter import *
 import time
 import threading
 import random
@@ -9,6 +10,7 @@ import multiprocessing
 from multiprocessing import Pool, Process, Queue 
 import time
 import pandas as pd
+from pandas import DataFrame
 from binance.client import Client
 from binance.websockets import BinanceSocketManager
 from binance.enums import *
@@ -20,6 +22,10 @@ import os.path
 import configparser
 from collections import deque
 from scipy.signal import detrend
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.animation import FuncAnimation
+from matplotlib.widgets import Slider, Button, RadioButtons
 
 received = 0
 processed = 0
@@ -134,8 +140,8 @@ class GuiPart:
         self.secret_label = tk.Label(self.controls_view, text='API Secret', relief='ridge')
         self.secret_label.grid(row=1, column=0,sticky=tk.E + tk.W )
         
-        #k = tk.StringVar( value='')
-        #s = tk.StringVar( value='')
+        k = tk.StringVar( value='')
+        s = tk.StringVar( value='')
 
         self.key_entry = tk.Entry(self.controls_view, show='*')
         self.key_entry.grid(row=0, column=1, columnspan=2,sticky=tk.E + tk.W)
@@ -214,58 +220,48 @@ class GuiPart:
         self.stats_view.columnconfigure(3,weight=0, uniform='stats')
 
     
-        ####
         self.trade_currency_value_label = tk.Label(self.stats_view, text=self.trade_currency + ' Value:', relief='ridge',width = 12)
         self.trade_currency_value_label.grid(row=0, column=0, sticky=tk.W + tk.E)
-       
         self.trade_currency_value_string = tk.StringVar()
         self.trade_currency_value_string.set('0')
-
         self.trade_currency_value = tk.Label(self.stats_view, textvariable=self.trade_currency_value_string, width = 10)
         self.trade_currency_value.grid(row=0, column=1, sticky=tk.W)
-        ####
-        ####
+        
+
         self.trade_currency_value_label_Start = tk.Label(self.stats_view, text=self.trade_currency + 'Start Value:', relief='ridge',width = 12)
         self.trade_currency_value_label_Start.grid(row=1, column=0, sticky=tk.W + tk.E)
-
         self.trade_currency_value_string_Start = tk.StringVar()
         self.trade_currency_value_string_Start.set('0')
-
         self.trade_currency_value_Start = tk.Label(self.stats_view, textvariable=self.trade_currency_value_string_Start,width = 10)
         self.trade_currency_value_Start.grid(row=1, column=1, sticky=tk.W)
-        ####
-        ####
+        
         self.imbalance_label = tk.Label(self.stats_view, text='Imbalance:', relief='ridge',width = 12)
         self.imbalance_label.grid(row=2, column=0,  sticky=tk.W + tk.E)
-        
         self.imbalance_string = tk.StringVar()
         self.imbalance_string.set('0%')
-       
         self.imbalance_value = tk.Label(self.stats_view, textvariable=self.imbalance_string, width = 10)
         self.imbalance_value.grid(row=2, column=1, sticky=tk.W)
-        ####
-
-        ####
-        self.messages_queued_label = tk.Label(self.stats_view, text='Status', relief='ridge',width = 12)
-        self.messages_queued_label.grid(row=0, column=2,  sticky=tk.W)
         
+        self.status_label = tk.Label(self.stats_view, text='Status', relief='ridge',width = 12)
+        self.status_label.grid(row=0, column=2,  sticky=tk.W)
+        self.status_string = tk.StringVar()
+        self.status_string.set('Idle')
+        self.status_value = tk.Label(self.stats_view, textvariable=self.status_string, width = 40)
+        self.status_value.grid(row=0, column=4, sticky=tk.W)
+
+        self.messages_queued_label = tk.Label(self.stats_view, text='Stats', relief='ridge',width = 12)
+        self.messages_queued_label.grid(row=1, column=2,  sticky=tk.W)
         self.messages_string = tk.StringVar()
         self.messages_string.set('Up to Date')
-        #self.messages_string.set('Threads 0, Queued 0, Rec 0, Proc 0')  
-                              
-        
         self.messages_queued = tk.Label(self.stats_view, textvariable=self.messages_string, width = 40)
-        self.messages_queued.grid(row=0, column=4, sticky=tk.W)
-        ####
-        
+        self.messages_queued.grid(row=1, column=4, sticky=tk.W)
+                
         self.trades_label = tk.Label(self.stats_view, text='Trades Placed:', relief='ridge',width = 12)
-        self.trades_label.grid(row=1, column=2,  sticky=tk.W)
-
+        self.trades_label.grid(row=2, column=2,  sticky=tk.W)
         self.trades_count = tk.IntVar()
         self.trades_count.set(0)
-
         self.trades_count_display = tk.Label(self.stats_view, textvariable=self.trades_count, width = 40)
-        self.trades_count_display.grid(row=1, column=4, sticky=tk.W)
+        self.trades_count_display.grid(row=2, column=4, sticky=tk.W)
 
     def read_config(self):
         s_to_ms = 1000
@@ -366,17 +362,17 @@ class GuiPart:
             self.messages_string.set('Login Error')
         else:
             try:
-                self.messages_string.set('Populating Portfolio')
                 self.populate_portfolio()
             except BinanceAPIException as e:
                 self.display_error('API Error', e.message, quit_on_exit=True)
             else:
-                self.messages_string.set('Starting Websockets')
-                print('starting websockets')
+                self.status_string.set('Starting Websockets')
                 queue.cancel_join_thread() 
                 global t1
                 t1 = multiprocessing.Process(target=GetSocketData,args=(self.client,queue,self.trade_currency,self.coins,))
                 t1.start()
+                self.status_string.set('Processing...')
+                
 
     def populate_portfolio(self):
         '''
@@ -384,7 +380,7 @@ class GuiPart:
         populate user portfolio data and execute trades
         '''
 
-        print('populating portfolio')
+        self.status_string.set('Populating Portfolio')
         self.coins = self.coins_base
         self.portfolio.delete(*self.portfolio.get_children())
         exchange_coins = []
@@ -408,11 +404,15 @@ class GuiPart:
         progress_var.set(progress)
         self.progressbar = ttk.Progressbar(self.controls_view, variable=progress_var, maximum=len(self.coins))
         self.progressbar.grid(row=0, column=0, columnspan=4, sticky=tk.E + tk.W)
+        coin_count = len(self.coins)
+
         for coin in self.coins['coin']:
+            
             self.progressbar.update()
             progress += 1
             progress_var.set(progress)
             updatetext.set('Fetching {0} account information'.format(coin))
+            self.status_string.set('Populating Portfolio {0} - {1}'.format(progress,coin_count))
             self.progresslabel.update()
             if coin == 'USDT' or coin == 'USDC' or coin == 'TUSD':
                 pair = trade_currency+coin
@@ -572,8 +572,264 @@ class GuiPart:
         self.update_status()
 
     def hello(self):
-        messagebox.showinfo("GUI Test", "Hopefully the GUI isnt blocking and is responsive")
-    
+            
+        def listBoxSelectionChange(event):
+            AddCoin(ListBoxSelectionString.get())
+        
+        def draw_Circle(self):
+
+            #draw circle
+            centre_circle = plt.Circle((0,0),0.70,fc='#eff0f0')
+            self.fig = plt.gcf()
+            self.fig.gca().add_artist(centre_circle)
+
+        def apply_Fonts(texts,autotexts):
+            
+            for text in texts:
+                text.set_color('black')
+                text.set_fontsize(10)
+
+            for autotext in autotexts:
+                autotext.set_color('black')
+                autotext.set_fontsize(10)
+
+        #Draw the pie chart
+        def Charting(self,portfolio_coins,fixed_balance,allocation):
+           
+            self.fig, self.ax = plt.subplots(figsize=(3, 3))
+            self.allocation = allocation
+            self.portfolio_coins = portfolio_coins
+            
+            #'Work around' which manually sets the charts canvas color manualy to be the same as the tkinter canvas color
+            #so as to imitate a transparent background.
+            self.fig.patch.set_facecolor('#eff0f0')
+
+            #draw circle
+            draw_Circle(self)
+            
+            #add piechart slice for the unallocated portfolio allocation
+            self.unallocated = list()
+            self.unallocated.append('Unallocated') 
+            self.unallocatedVal = list()
+            self.unallocatedVal.append(0)
+
+            self.ax.pie(self.allocation + self.unallocatedVal ,labels=self.portfolio_coins+self.unallocated,autopct='%1.1f%%')
+
+            bar1 = FigureCanvasTkAgg(self.fig, self.chartView)
+            bar1.get_tk_widget().grid(row=0,column=0,padx=3)
+
+        #Setup the new dialog window
+        self.window = tk.Toplevel(self.master)
+        self.window.geometry("1000x600") #Width x Height
+
+        #Read the current portfolio allocations from allocation.csv
+        #Do allocation.csv error checking
+        portfolio = 'allocation.csv'
+        allocations = pd.read_csv(portfolio)
+        portfolio_coins = list()
+        fixed_balance = list()
+        allocation = list()
+
+        self.Totals_String = StringVar(self.window)
+
+        row = 0
+        sliderValues = list()
+        sliderId = list()
+        self.blank = ''
+        Default_Value = StringVar(self.window)
+        Default_Value.set("0.0")
+        
+        Allocation_Frame = tk.LabelFrame(self.window, text='Portfolio Allocations')
+        Allocation_Frame.grid(row=0, column=0, padx=10, sticky=tk.E + tk.W + tk.N + tk.S)
+        
+
+        #Add coin frame
+        AddAsset_View = tk.LabelFrame(self.window, text='Add Coin to Portfoio')
+        AddAsset_View.grid(row=0, column=1, padx=10, sticky=tk.E + tk.W + tk.N + tk.S)
+
+        #Chart Frame
+        self.chartView = tk.LabelFrame(self.window, text='Visualization')
+        self.chartView.grid(row=0, column=2, padx=10, sticky=tk.E + tk.W + tk.N + tk.S)
+                
+        paddingX = 6
+
+        tk.Label(Allocation_Frame, text='Coin', relief=tk.RIDGE, width=5 ).grid(row=0,column=1, padx=paddingX, sticky=tk.E + tk.W + tk.N + tk.S)
+        tk.Label(Allocation_Frame, text='Fixed %', relief=tk.RIDGE).grid(row=0,column=2, padx=paddingX,  sticky=tk.E + tk.W + tk.N + tk.S)
+        tk.Label(Allocation_Frame, text='Target Allocation %', relief=tk.RIDGE, width=7 ).grid(row=0,column=3, padx=paddingX, columnspan=2, sticky=tk.E + tk.W + tk.N + tk.S)
+        tk.Label(Allocation_Frame, text='Remove', relief=tk.RIDGE, width=5 ).grid(row=0,column=5, padx=paddingX, sticky=tk.E + tk.W + tk.N + tk.S)
+        
+        Totals_Frame = tk.LabelFrame(self.window, text='Totals')
+        Totals_Frame.grid(row=1, column=0, columnspan=6,sticky=tk.E + tk.W + tk.N + tk.S, padx=paddingX)
+        tk.Label(Totals_Frame, textvariable=self.Totals_String,  width=60 ).grid(row=row, column=0, padx=paddingX)
+        
+        Markets = self.client.get_all_tickers()
+
+        btcMarkets =[]
+        for symbols in Markets:
+            if symbols['symbol'][-3:] == 'BTC':
+                coin = symbols['symbol'].replace('BTC','')
+                btcMarkets.append(coin)
+
+        ListBoxSelectionString= StringVar()
+
+        listBox = ttk.Combobox(AddAsset_View, textvariable=ListBoxSelectionString, values=btcMarkets)
+        listBox.grid(row=0,column=5,padx=3)
+        listBox.bind("<<ComboboxSelected>>", listBoxSelectionChange)
+
+        for line in allocations.itertuples():
+             portfolio_coins.append(line.coin)
+             fixed_balance.append(line.fixed_balance)
+             allocation.append(line.allocation)
+        
+        
+        self.WidgetList = list()
+        
+        def removeCoinB(coin):
+             print('widgets ' + str(self.WidgetList))
+             skip = False
+             for i in range(0,len(self.WidgetList)):
+                            
+                            if skip == False:
+                                if(self.WidgetList[i][1].cget("text") == coin):
+                                    for item in self.WidgetList[i]:
+                                        item.destroy()
+                                            
+                                    index = self.portfolio_coins.index(coin)
+
+                                    self.portfolio_coins.remove(coin)                        
+                                    self.allocation.pop(index)
+                                    self.WidgetList.remove(self.WidgetList[i])
+                                    sliderId.pop(index)
+                                    skip = True
+              
+             for i in range(0,len(self.WidgetList)):           
+                            self.WidgetList[i][0].config(text=i+1)
+             
+             for item in range(0,len(sliderId)):
+                    sliderId[item].config(command=lambda value, name=item: sumAllocations(name, value))
+                    
+                               
+                                                          
+        for coin in portfolio_coins:
+            widgets = list()
+            sliderValues.append(StringVar())
+            RowId    = tk.Label(Allocation_Frame, text=row+1,   relief=tk.RIDGE,  width=5)
+            CoinId   = tk.Label(Allocation_Frame, text=coin,  relief=tk.RIDGE,  width=15)
+            FixedId  = tk.Entry(Allocation_Frame, bg='white', relief=tk.SUNKEN, width=7, textvariable=Default_Value)
+            EntryId  = tk.Entry(Allocation_Frame, bg='white', relief=tk.SUNKEN, width=7, textvariable=sliderValues[-1], state='disabled',)
+            sliderid = tk.Scale(Allocation_Frame, variable=sliderValues[-1], showvalue=0, length=150, relief=tk.RIDGE, resolution=0.5, from_=0, to=100, orient='horizontal')
+            sliderid.set(allocation[row])
+            #update the command argument after the scale sliders default value has been set.
+            sliderid.config(command=lambda value, name=row: sumAllocations(name, value))
+            sliderId.append(sliderid)
+            deleteBtn = tk.Button(Allocation_Frame,height=0,command=lambda coin=coin: removeCoinB(coin), width=13, text='Remove {0}'.format(coin), fg="red")
+            
+            RowId.grid(row=row+1,column=0, padx=paddingX)
+            CoinId.grid(row=row+1,column=1, padx=paddingX)
+            FixedId.grid(row=row+1,column=2, padx=paddingX)
+            EntryId.grid(row=row+1,column=3, padx=paddingX)
+            sliderid.grid(row=row+1,column=4, padx=paddingX)
+            deleteBtn.grid(row=row+1,column=5, sticky=tk.E + tk.W, padx=paddingX, pady=3)
+
+            row = row + 1
+
+            widgets.append(RowId)
+            widgets.append(CoinId)
+            widgets.append(FixedId)
+            widgets.append(EntryId)
+            widgets.append(sliderid)
+            widgets.append(deleteBtn)
+            self.WidgetList.append(widgets)
+
+        Charting(self,portfolio_coins,fixed_balance,allocation)
+        
+        #Update piechart with new values
+        def update(val):
+            def autopct_format(values):
+                def my_format(pct):
+                    y= list(map(float, values))
+                    total = sum(y)
+                    val = round(float(pct*total/100.0) * 2.0,1) / 2.0
+                    return(val)
+                return my_format
+
+            self.ax.clear()
+            if(self.Remaining > 0):
+             self.ax.pie(self.allocation + self.unallocatedVal ,labels=self.portfolio_coins+self.unallocated,autopct = autopct_format(self.allocation+self.unallocatedVal))
+            else:
+             self.ax.pie(self.allocation ,labels=self.portfolio_coins,autopct = autopct_format(self.allocation))
+            #draw circle
+            draw_Circle(self)
+            
+            self.fig.canvas.draw_idle()
+
+        def sumAllocations(name,val):
+            self.TotalAllocated = 0
+            self.Remaining = 100
+            for value in sliderValues:
+               self.TotalAllocated = self.TotalAllocated + float(value.get())
+               self.Remaining = 100 - self.TotalAllocated
+               if self.TotalAllocated > 100:
+                            TempTotal = 0
+                            x = 0
+                            for x in range(0,len(sliderId)):
+                                if x != name:
+                                    TempTotal = TempTotal + sliderId[x].get()
+                                    
+                            sliderId[name].set(100 - TempTotal)
+                            self.TotalAllocated = 100
+                            self.Totals_String.set('{0}% of portfolio allocated, {1}% remaining to be allocated'.format(str(100),str(0)))
+            
+               else:
+                      self.Totals_String.set('{0}% of portfolio allocated, {1}% remaining to be allocated'.format(str(self.TotalAllocated),str(self.Remaining)))
+                      self.unallocatedVal.clear()
+                      self.unallocatedVal.append(self.Remaining)
+            
+            if self.TotalAllocated <= 100:
+                self.allocation[name]=val
+                update(float(val))
+            if self.TotalAllocated == 100:
+                #self.allocation[self.portfolio_coins.index('Unallocated')]=0
+                self.unallocatedVal.clear()
+                self.unallocatedVal.append(self.Remaining)
+                self.allocation[name]=sliderId[name].get()
+                update(float(val))
+           
+
+        def AddCoin(coin):
+            #add the new coin for the chart
+            self.portfolio_coins.append(coin)
+            self.allocation.append(0)
+            widgets = list()
+            row = len(self.portfolio_coins)
+            sliderValues.append(StringVar())
+            RowId    = tk.Label(Allocation_Frame, text=row,   relief=tk.RIDGE,  width=5)
+            CoinId   = tk.Label(Allocation_Frame, text=coin,  relief=tk.RIDGE,  width=15)
+            FixedId  = tk.Entry(Allocation_Frame, bg='white', relief=tk.SUNKEN, width=7, textvariable=Default_Value)
+            EntryId  = tk.Entry(Allocation_Frame, bg='white', relief=tk.SUNKEN, width=7, textvariable=sliderValues[-1], state='disabled',)
+            sliderid = tk.Scale(Allocation_Frame, variable=sliderValues[-1], showvalue=0, length=150, relief=tk.RIDGE, resolution=0.5, from_=0, to=100, orient='horizontal')
+            sliderid.set(allocation[row-1])
+            #update the command argument after the scale sliders default value has been set.
+            sliderid.config(command=lambda value, name=row-1: sumAllocations(name, value))
+            sliderId.append(sliderid)
+            deleteBtn = tk.Button(Allocation_Frame,height=0,command=lambda coin=coin: removeCoinB(coin), width=13, text='Remove {0}'.format(coin), fg="red")
+            
+            RowId.grid(row=row+1,column=0, padx=paddingX)
+            CoinId.grid(row=row+1,column=1, padx=paddingX)
+            FixedId.grid(row=row+1,column=2, padx=paddingX)
+            EntryId.grid(row=row+1,column=3, padx=paddingX)
+            sliderid.grid(row=row+1,column=4, padx=paddingX)
+            deleteBtn.grid(row=row+1,column=5, sticky=tk.E + tk.W, padx=paddingX, pady=3)
+
+            widgets.append(RowId)
+            widgets.append(CoinId)
+            widgets.append(FixedId)
+            widgets.append(EntryId)
+            widgets.append(sliderid)
+            widgets.append(deleteBtn)
+            self.WidgetList.append(widgets)
+            
+        
     def print_price(self, msg):
         pair = msg['s']
         avg_price = float(msg['w'])
@@ -907,24 +1163,17 @@ class ThreadedClient:
                           self.thread2 = threading.Thread(target=self.processIncoming)
                           self.thread2.start()
                           #Thread completed assigned jobs, retasking....
-                          self.master.after_idle(self.master.after,150,self.processIncoming)
+                          self.master.after_idle(self.master.after,1,self.processIncoming)
                 else:
                         
                         self.gui.messages_string.set('Threads {0}, Queued {1}, Rec {2}, Proc {3}'.format(str(threadcount),self.queueLength, received, processed))  
                         if threadcount > maxThreads:
-                           return
-                        else:
                            maxThreads = maxThreads - 1
-
+                           return
+                        
                         if maxThreads <= 3:
                            maxThreads = 3
 
-                        if self.lastQsize < self.queueLength:
-                           return
-
-                       
-                         
-                        
                 self.master.after_idle(self.master.after,250,self.processIncoming)
    
 # Data Generator which will generate Data
